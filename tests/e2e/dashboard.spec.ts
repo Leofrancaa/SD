@@ -1,5 +1,36 @@
 import { expect, test } from "@playwright/test";
 
+test("analytics show rankings, weekday averages and production outcomes for the selected range", async ({
+  page,
+}) => {
+  await page.goto("/");
+  for (const title of [
+    "Os favoritos do balcão",
+    "Cada dia tem seu ritmo",
+    "O destino de cada fornada",
+    "Onde o desperdício pesa",
+  ])
+    await expect(page.getByRole("heading", { name: title })).toBeVisible();
+  const ranking = page.locator(".ranking-list");
+  await expect(ranking.locator("li").first()).toContainText("Pão francês");
+  await page.getByRole("button", { name: "Receita", exact: true }).click();
+  await expect(ranking.locator("li").first()).toContainText(
+    "Coxinha de frango",
+  );
+  await page.getByRole("button", { name: "Retorno", exact: true }).focus();
+  await page.keyboard.press("Enter");
+  await expect(
+    page.getByRole("button", { name: "Retorno", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
+  const production = await page.locator(".donut-center strong").innerText();
+  await page.getByRole("button", { name: "30 dias", exact: true }).click();
+  expect(await page.locator(".donut-center strong").innerText()).not.toEqual(
+    production,
+  );
+  await expect(page.locator(".weekday-column")).toHaveCount(7);
+  await expect(page.locator(".waste-list li")).toHaveCount(5);
+});
+
 test("overview renders without browser errors and filters update URL and metrics", async ({
   page,
 }) => {
@@ -20,6 +51,9 @@ test("overview renders without browser errors and filters update URL and metrics
     page.getByText("Valor descartado por dia, ao custo"),
   ).toBeVisible();
   await page.screenshot({ path: "test-results/desktop.png", fullPage: true });
+  await page
+    .locator(".analytics-section")
+    .screenshot({ path: "test-results/analytics-desktop.png" });
   expect(errors).toEqual([]);
 });
 
@@ -142,12 +176,26 @@ test("mobile, keyboard controls and reduced motion remain usable", async ({
   await page.setViewportSize({ width: 390, height: 844 });
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/");
+  await page.keyboard.press("Tab");
+  await expect(
+    page.getByRole("link", { name: "Ir para o conteúdo" }),
+  ).toBeFocused();
+  await expect(
+    page.getByRole("link", { name: "Ir para o conteúdo" }),
+  ).toHaveCSS("opacity", "1");
+  await page.getByRole("button", { name: "Visão geral", exact: true }).focus();
+  await expect(
+    page.getByRole("link", { name: "Ir para o conteúdo" }),
+  ).toHaveCSS("opacity", "0");
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= window.innerWidth,
     ),
   ).toBe(true);
   await page.screenshot({ path: "test-results/mobile.png", fullPage: true });
+  await page
+    .locator(".analytics-section")
+    .screenshot({ path: "test-results/analytics-mobile.png" });
   await page
     .getByRole("button", { name: "Produção e vendas", exact: true })
     .click();

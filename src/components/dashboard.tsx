@@ -43,6 +43,7 @@ import {
   type Decision,
 } from "@/lib/demo";
 import { useDemoStore } from "@/lib/use-demo-store";
+import { AnalyticsCharts } from "./analytics-charts";
 
 type View = "overview" | "production" | "products" | "insights" | "settings";
 const navigation: { id: View; title: string; icon: LucideIcon }[] = [
@@ -401,6 +402,7 @@ export function Dashboard() {
                   </span>
                 </section>
               </div>
+              <AnalyticsCharts records={records} />
               <ProductTable
                 records={records}
                 filteredProducts={products}

@@ -158,13 +158,18 @@ a {
 .skip-link {
   position: fixed;
   left: 16px;
-  top: -100px;
+  top: 16px;
+  transform: translateY(-200%);
+  opacity: 0;
+  pointer-events: none;
   z-index: 20;
   padding: 12px 20px;
   background: var(--surface);
 }
 .skip-link:focus {
-  top: 16px;
+  transform: translateY(0);
+  opacity: 1;
+  pointer-events: auto;
 }
 .app-shell {
   min-height: 100vh;
@@ -1010,6 +1015,432 @@ tbody tr:hover {
 }
 .footer-dot {
   margin: 0 5px;
+}
+.analytics-section {
+  margin: 30px 0 24px;
+}
+.analytics-section-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.analytics-section-heading > h2 {
+  font-size: 19px;
+}
+.analytics-section-heading > p {
+  color: var(--muted);
+  font-size: 12px;
+}
+.analytics-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+.analytics-panel {
+  padding: 23px;
+  display: flex;
+  flex-direction: column;
+}
+.analytics-panel .inline-title h2 {
+  font-size: 16px;
+}
+.analytics-caption {
+  color: var(--muted);
+  font-size: 10px;
+  white-space: nowrap;
+}
+.ranking-toggle {
+  align-self: flex-start;
+  margin: 18px 0 4px;
+}
+.ranking-toggle button {
+  font-size: 11px;
+  padding: 6px 12px;
+}
+.ranking-list {
+  list-style: none;
+  padding: 0;
+  margin: 13px 0 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.ranking-list li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.rank-number {
+  font:
+    600 12px "Manrope",
+    sans-serif;
+  color: var(--muted);
+  width: 22px;
+  height: 25px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+.rank-number.first {
+  color: var(--primary);
+  background: var(--primary-soft);
+  border-radius: 5px;
+}
+.ranking-content {
+  flex: 1;
+  min-width: 0;
+}
+.ranking-label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12px;
+}
+.ranking-label > span {
+  overflow-wrap: anywhere;
+}
+.ranking-label > strong {
+  font-weight: 600;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.ranking-track {
+  height: 6px;
+  background: var(--background);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-top: 8px;
+}
+.ranking-track > span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  border-radius: inherit;
+}
+.ranking-track > .leading {
+  background: var(--primary);
+}
+.ranking-track > .negative {
+  background: var(--danger);
+}
+.analytics-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 10px;
+  color: var(--muted);
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+  margin-top: auto;
+}
+.analytics-footer-icon {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--primary);
+}
+.weekday-highlight {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  margin: 24px 0 20px;
+}
+.weekday-highlight > strong {
+  font:
+    600 32px "Manrope",
+    sans-serif;
+  letter-spacing: -0.025em;
+}
+.weekday-highlight > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.weekday-highlight span {
+  color: var(--muted);
+  font-size: 11px;
+}
+.weekday-highlight b {
+  font-size: 12px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.weekday-highlight > svg {
+  margin-left: auto;
+  color: var(--success);
+}
+.weekday-chart {
+  display: flex;
+  gap: 10px;
+  min-height: 205px;
+  margin: auto 0 19px;
+}
+.weekday-column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+}
+.weekday-amount {
+  font-size: 9px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 9px;
+  white-space: nowrap;
+}
+.weekday-track {
+  height: 145px;
+  width: 100%;
+  max-width: 38px;
+  display: flex;
+  align-items: flex-end;
+  border-bottom: 1px solid var(--border);
+}
+.weekday-track > span {
+  width: 100%;
+  background: var(--primary-soft);
+  border-radius: 4px 4px 0 0;
+}
+.weekday-track > .best {
+  background: var(--primary);
+}
+.weekday-column > strong {
+  margin-top: 9px;
+  font-size: 11px;
+  font-weight: 500;
+}
+.weekday-count {
+  font-size: 9px;
+  color: var(--muted);
+  margin-top: 3px;
+}
+.production-breakdown {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 25px;
+  flex: 1;
+  margin: 30px 0;
+}
+.outcome-donut {
+  width: 190px;
+  max-width: 50%;
+  flex-shrink: 0;
+  position: relative;
+}
+.outcome-donut svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+.outcome-donut circle {
+  fill: none;
+  stroke-width: 16;
+}
+.outcome-donut .outcome-base {
+  stroke: var(--border);
+}
+.outcome-donut .outcome-sold {
+  stroke: var(--success);
+}
+.outcome-donut .outcome-retained {
+  stroke: var(--accent);
+}
+.outcome-donut .outcome-discarded {
+  stroke: var(--primary);
+}
+.donut-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.donut-center strong {
+  font:
+    600 26px "Manrope",
+    sans-serif;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+.donut-center span {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 3px;
+}
+.outcome-legend {
+  margin: 0;
+  flex: 1;
+}
+.outcome-legend > div + div {
+  margin-top: 20px;
+}
+.outcome-legend dt {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.outcome-legend i {
+  height: 7px;
+  width: 7px;
+  border-radius: 2px;
+}
+.outcome-legend .outcome-sold {
+  background: var(--success);
+}
+.outcome-legend .outcome-retained {
+  background: var(--accent);
+}
+.outcome-legend .outcome-discarded {
+  background: var(--primary);
+}
+.outcome-legend dd {
+  margin: 5px 0 0 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.outcome-legend dd strong {
+  font-size: 17px;
+  font-weight: 600;
+}
+.outcome-legend dd span {
+  font-size: 10px;
+  color: var(--muted);
+}
+.waste-summary {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin: 20px 0;
+}
+.waste-summary strong {
+  font:
+    600 25px "Manrope",
+    sans-serif;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.025em;
+}
+.waste-summary > span {
+  color: var(--muted);
+  font-size: 10px;
+}
+.waste-list {
+  list-style: none;
+  margin: 0 0 23px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.waste-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 5px;
+}
+.waste-row .ranking-track {
+  flex: 1;
+  margin: 0;
+}
+.waste-row .ranking-track > span {
+  background: var(--primary);
+}
+.waste-row > span {
+  color: var(--muted);
+  font-size: 9px;
+  min-width: 85px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+@media (max-width: 1100px) {
+  .analytics-grid {
+    grid-template-columns: 1fr;
+  }
+  .weekday-track {
+    max-width: 52px;
+  }
+  .production-breakdown {
+    justify-content: flex-start;
+    gap: 40px;
+  }
+  .outcome-legend {
+    max-width: 300px;
+  }
+}
+@media (max-width: 460px) {
+  .analytics-section-heading {
+    flex-direction: column;
+    gap: 5px;
+  }
+  .analytics-panel {
+    padding: 20px 16px;
+  }
+  .analytics-panel .inline-title h2 {
+    font-size: 14px;
+  }
+  .analytics-panel .section-description {
+    font-size: 11px;
+  }
+  .analytics-grid {
+    gap: 16px;
+  }
+  .ranking-label {
+    font-size: 11px;
+  }
+  .ranking-label > strong {
+    font-size: 10px;
+  }
+  .ranking-list li {
+    gap: 8px;
+  }
+  .weekday-chart {
+    gap: 7px;
+  }
+  .weekday-amount {
+    font-size: 8px;
+  }
+  .production-breakdown {
+    gap: 16px;
+  }
+  .outcome-donut {
+    width: 150px;
+    max-width: 47%;
+  }
+  .donut-center strong {
+    font-size: 21px;
+  }
+  .outcome-legend dd {
+    gap: 8px;
+  }
+  .outcome-legend dd strong {
+    font-size: 15px;
+  }
+  .outcome-legend dd span {
+    font-size: 9px;
+  }
+}
+@media (forced-colors: active) {
+  .ranking-track > span,
+  .weekday-track > span {
+    background: Highlight;
+  }
+  .outcome-donut circle {
+    stroke: CanvasText;
+  }
 }
 .search-row {
   display: flex;

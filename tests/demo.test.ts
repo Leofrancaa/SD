@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  productionOutcomes,
+  rankProducts,
+  weekdayAverages,
+} from "../src/lib/analytics";
+import {
   generateRecords,
   parseState,
   periodRecords,
@@ -13,6 +18,58 @@ import {
 } from "../src/lib/demo";
 
 const records = generateRecords();
+test("weekday averages normalize repeated weekdays and exclude missing days", () => {
+  const row = {
+    ...records[0],
+    productId: products[0].id,
+    produced: 100,
+    sold: 10,
+    discarded: 0,
+    stockout: "",
+  };
+  const averages = weekdayAverages([
+    { ...row, date: "2026-09-07" },
+    { ...row, date: "2026-09-14", sold: 30 },
+    { ...row, date: "2026-09-08", sold: 25 },
+  ]);
+  assert.equal(averages[0].days, 2);
+  assert.equal(averages[0].average, 20 * products[0].price);
+  assert.equal(averages[1].average, 25 * products[0].price);
+  assert.equal(averages[2].days, 0);
+});
+test("product ranking distinguishes volume from revenue and retains negative returns", () => {
+  const rows = [
+    {
+      ...records[0],
+      productId: products[0].id,
+      produced: 100,
+      sold: 100,
+      discarded: 0,
+      stockout: "",
+    },
+    {
+      ...records[0],
+      productId: products[2].id,
+      produced: 30,
+      sold: 30,
+      discarded: 0,
+      stockout: "",
+    },
+  ];
+  assert.equal(rankProducts(rows, "sold")[0].product.id, products[0].id);
+  assert.equal(rankProducts(rows, "revenue")[0].product.id, products[2].id);
+  const negative = rankProducts(
+    [{ ...rows[0], sold: 0, discarded: 100 }],
+    "return",
+  ).find((item) => item.product.id === products[0].id)!;
+  assert.equal(negative.return, -100 * products[0].cost);
+  const outcomes = productionOutcomes(records);
+  assert.equal(
+    outcomes.sold + outcomes.retained + outcomes.discarded,
+    outcomes.produced,
+  );
+  assert.equal(productionOutcomes([]).produced, 0);
+});
 test("synthetic history is deterministic and conserves every batch", () => {
   assert.deepEqual(records, generateRecords());
   assert.equal(records.length, 150);
