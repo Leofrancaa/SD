@@ -1,0 +1,27 @@
+{
+  "profile": "product-admin",
+  "sourceRoots": ["src"],
+  "locale": "pt-BR",
+  "canonicalMap": "UX-CONTRACT.md",
+  "requiredCapabilities": [
+    "Select/Listbox",
+    "Date",
+    "Form",
+    "Scrollbar",
+    "Toast",
+    "CRUD"
+  ],
+  "ownership": { "Select/Listbox": "native", "Date": "native" },
+  "requiredCommands": ["unit", "e2e", "typecheck", "lint", "build"],
+  "commands": {
+    "unit": "npm test",
+    "e2e": "npx playwright test",
+    "typecheck": "npm run typecheck",
+    "lint": "npm run lint",
+    "build": "npm run build"
+  },
+  "evidence": {
+    "crudFullFlow": "tests/e2e/dashboard.spec.ts",
+    "failurePaths": "tests/e2e/dashboard.spec.ts"
+  }
+}
