@@ -1,6 +1,6 @@
 # Superdeli · eia
 
-A responsive bakery management pilot built with Next.js App Router, TypeScript and Tailwind CSS. The interface is Brazilian Portuguese. Thirty days of deterministic synthetic records cover five illustrative products.
+A responsive bakery and minimarket management pilot built with Next.js App Router, TypeScript and Tailwind CSS. The interface is Brazilian Portuguese. Thirty days of deterministic synthetic records cover 14 illustrative products: five bakery items and nine resale goods.
 
 ## Run locally
 
@@ -28,7 +28,7 @@ Import `Leofrancaa/SD`, select Next.js and use the repository root. The build co
 
 ## Demo boundaries
 
-Daily records and reviewed suggestions persist in browser localStorage only. CSV exports provide a portable copy. Storage errors retain entered fields; corrupted saved data is protected from overwrite. Dashboard suggestions are rule-based; the chat uses Groq through a server endpoint. Approval records a planning decision and never changes production automatically. Discarded loss is calculated at production cost. Estimated return excludes fixed operating expenses. Revenue, prices, costs and product quantities are illustrative.
+Daily records and reviewed suggestions persist in browser localStorage only. CSV exports provide a portable copy. Storage errors retain entered fields; corrupted saved data is protected from overwrite. Dashboard suggestions are rule-based; the chat uses Groq through a server endpoint. Approval records a planning decision and never changes production automatically. Discarded loss is calculated at production or purchase cost. Retail inventory uses the latest dated closing snapshot, with opening stock and received units recorded separately. Saved legacy bakery records are preserved when the resale catalog is added. Estimated return excludes fixed operating expenses. Revenue, prices, costs and product quantities are illustrative.
 
 Chat history stays in the mounted browser session and is not saved by the application. Questions and synthetic records are sent to Groq for generation; avoid personal data. The server validates records and roles, calculates reports, rejects foreign origins, limits request/history sizes, caps output and tool steps, supports cancellation, and masks provider failures. The in-memory limit is eight requests per minute per IP **per server instance**, not a distributed quota or authentication boundary. Add durable rate limits and authentication before expanding public access or accepting real business data. AI answers can still be wrong; users must review them.
 

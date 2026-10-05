@@ -11,7 +11,7 @@ test("chat uses the selected data, renders Markdown and retains history during n
       return route.fulfill({ json: { configured: true } });
     const body = route.request().postDataJSON();
     requests.push(body);
-    expect(body.records).toHaveLength(150);
+    expect(body.records).toHaveLength(420);
     expect(body.messages.at(-1).role).toBe("user");
     return route.fulfill({
       contentType: "application/x-ndjson",

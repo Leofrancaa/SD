@@ -43,6 +43,8 @@ const questions = [
   "Qual produto vende mais?",
   "Onde estamos desperdiçando mais?",
   "Como ajustar a produção de terça-feira?",
+  "Quais mercadorias precisam de reposição?",
+  "Há algum produto de revenda sem giro recente?",
   "Faça um resumo das vendas do período.",
 ];
 

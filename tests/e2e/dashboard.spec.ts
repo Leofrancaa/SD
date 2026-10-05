@@ -75,7 +75,7 @@ test("overview renders without browser errors and filters update URL and metrics
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("/");
   await expect(
-    page.getByRole("heading", { name: "Sua padaria, por inteiro." }),
+    page.getByRole("heading", { name: "Sua Superdeli, por inteiro." }),
   ).toBeVisible();
   const initial = await page.locator(".metric").first().innerText();
   await page.getByRole("button", { name: "14 dias", exact: true }).click();
@@ -105,7 +105,7 @@ test("search supports no-results and clearing, and navigation restores focus", a
   await page.getByRole("textbox", { name: "Buscar produtos" }).fill("zzzz");
   await expect(page.getByText("Nenhum produto encontrado")).toBeVisible();
   await page.getByRole("button", { name: "Limpar busca" }).click();
-  await expect(page.locator("tbody tr")).toHaveCount(5);
+  await expect(page.locator("tbody tr")).toHaveCount(14);
   await expect(
     page.getByRole("textbox", { name: "Buscar produtos" }),
   ).toBeFocused();
@@ -248,4 +248,44 @@ test("mobile, keyboard controls and reduced motion remain usable", async ({
       () => getComputedStyle(document.documentElement).scrollbarColor,
     ),
   ).not.toBe("auto");
+});
+
+test("minimarket inventory records receipts and keeps unsold goods out of waste", async ({
+  page,
+}) => {
+  await page.goto("/?view=inventory");
+  await expect(page.locator(".inventory-panel tbody tr")).toHaveCount(9);
+  await expect(
+    page
+      .locator(".inventory-panel tbody tr")
+      .filter({ hasText: "Morango congelado" }),
+  ).toContainText("25 dias sem venda");
+  await page.screenshot({
+    path: "test-results/inventory-desktop.png",
+    fullPage: true,
+  });
+  await page.setViewportSize({ width: 390, height: 900 });
+  await page.screenshot({
+    path: "test-results/inventory-mobile.png",
+    fullPage: true,
+  });
+  await page.goto("/?view=production");
+  await page.locator("#record-product").selectOption("ground-coffee");
+  await page.locator("#record-opening-stock").fill("10");
+  await page.locator("#record-produced").fill("5");
+  await page.locator("#record-sold").fill("3");
+  await page.locator("#record-discarded").fill("0");
+  await page
+    .getByRole("button", { name: "Salvar registro", exact: true })
+    .click();
+  await expect(
+    page.getByText("Registro salvo neste navegador.", { exact: true }),
+  ).toBeVisible();
+  await page.goto("/?view=inventory");
+  const coffee = page
+    .locator(".inventory-panel tbody tr")
+    .filter({ hasText: "500 g" });
+  await expect(coffee.locator("td").first()).toContainText("12");
+  await page.reload();
+  await expect(coffee.locator("td").first()).toContainText("12");
 });

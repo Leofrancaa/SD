@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { generateRecords, money, products } from "../src/lib/demo";
+import {
+  generateRecords,
+  money,
+  products,
+  summarize,
+  periodRecords,
+} from "../src/lib/demo";
 import {
   assistantInstructions,
   bakeryReport,
@@ -71,7 +77,10 @@ test("selected context follows the dashboard range and labels the simulation", (
   assert.equal(context.report.startDate, "2026-09-29");
   assert.equal(context.report.endDate, "2026-10-05");
   assert.ok("totals" in context.report);
-  assert.equal(money(context.report.totals.revenue), "R$ 14.598,45");
+  assert.equal(
+    money(context.report.totals.revenue),
+    money(summarize(periodRecords(records, 7)).revenue),
+  );
   assert.equal(context.report.synthetic, true);
   assert.ok(assistantInstructions.includes("NOT net profit"));
   const empty = selectedChatContext([], 30);
@@ -119,7 +128,7 @@ test("chat API masks configuration and rejects cross-origin and invalid payloads
       ).status,
       400,
     );
-    assert.equal((await POST(request("x".repeat(60001)))).status, 413);
+    assert.equal((await POST(request("x".repeat(180001)))).status, 413);
     delete process.env.GROQ_API_KEY;
     assert.equal((await POST(request("{}"))).status, 503);
   } finally {
@@ -194,4 +203,28 @@ test("chat falls back once on Groq rate limits without exposing upstream errors"
     if (previousModel === undefined) delete process.env.GROQ_MODEL;
     else process.env.GROQ_MODEL = previousModel;
   }
+});
+
+test("retail report separates closing inventory from bakery leftovers and respects historical dates", () => {
+  const report = bakeryReport(
+    records,
+    "2026-10-05",
+    "2026-10-05",
+    "frozen-strawberry",
+  );
+  assert.ok(report.totals);
+  assert.equal(report.totals.produced, 0);
+  assert.equal(report.totals.leftover, 0);
+  assert.equal(report.totals.loss, 0);
+  assert.equal(report.inventory[0].stock, 30);
+  assert.equal(report.inventory[0].daysWithoutSale, 25);
+  const earlier = bakeryReport(
+    records,
+    "2026-09-06",
+    "2026-09-06",
+    "frozen-strawberry",
+  );
+  assert.ok(earlier.inventory);
+  assert.equal(earlier.inventory[0].stock, 38);
+  assert.equal(earlier.inventory[0].daysWithoutSale, 0);
 });

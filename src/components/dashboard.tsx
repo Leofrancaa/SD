@@ -32,6 +32,7 @@ import {
   DEMO_END,
   leftoverDestinations,
   money,
+  inventorySummary,
   number,
   periodRecords,
   products,
@@ -48,10 +49,17 @@ import { AnalyticsCharts } from "./analytics-charts";
 import { BakeryChat } from "./bakery-chat";
 
 type View =
-  "overview" | "production" | "products" | "insights" | "chat" | "settings";
+  | "inventory"
+  | "overview"
+  | "production"
+  | "products"
+  | "insights"
+  | "chat"
+  | "settings";
 const navigation: { id: View; title: string; icon: LucideIcon }[] = [
   { id: "overview", title: "Visão geral", icon: LayoutDashboard },
   { id: "production", title: "Produção e vendas", icon: ClipboardList },
+  { id: "inventory", title: "Estoque e reposição", icon: Package },
   { id: "products", title: "Produtos", icon: Package },
   { id: "insights", title: "Sugestões eia", icon: Sparkles },
   { id: "chat", title: "Conversar com a eia", icon: MessageCircle },
@@ -113,9 +121,6 @@ export function Dashboard() {
   const comparisonAvailable = days <= 14;
   const revenueChange = previous.revenue
     ? ((totals.revenue - previous.revenue) / previous.revenue) * 100
-    : 0;
-  const wasteRate = totals.produced
-    ? (totals.discarded / totals.produced) * 100
     : 0;
   const suggestions = recommendations(records);
   const pending = suggestions.filter(
@@ -185,7 +190,7 @@ export function Dashboard() {
             <span>Conceição do Jacuípe, BA</span>
           </div>
         </div>
-        <span className="nav-label">GESTÃO DA PADARIA</span>
+        <span className="nav-label">PADARIA E MINIMERCADO</span>
         <nav aria-label="Menu principal">
           {navigation.map(({ id, title, icon: Icon }) => (
             <button
@@ -249,20 +254,22 @@ export function Dashboard() {
           <div className="page-heading">
             <div>
               <h1 ref={headingRef} tabIndex={-1}>
-                {view === "overview" ? "Sua padaria, por inteiro." : title}
+                {view === "overview" ? "Sua Superdeli, por inteiro." : title}
               </h1>
               <p>
                 {view === "overview"
-                  ? "Um olhar sobre as vendas. Um próximo passo para produzir melhor."
+                  ? "Da fornada às prateleiras: vendas, produção e estoque em um só lugar."
                   : view === "production"
-                    ? "Cada fornada conta. Registre o que saiu e o que sobrou."
-                    : view === "products"
-                      ? "Conheça o retorno e as sobras dos cinco produtos do piloto."
-                      : view === "insights"
-                        ? "Os dados apontam caminhos. A decisão continua com você."
-                        : view === "chat"
-                          ? "Pergunte, entenda os números e planeje seu próximo passo."
-                          : "Uma base para começar pequeno e aprender com a rotina."}
+                    ? "Registre a produção da padaria e as entradas e vendas do minimercado."
+                    : view === "inventory"
+                      ? "Acompanhe as mercadorias, confira o giro e planeje as compras."
+                      : view === "products"
+                        ? "Compare o retorno da produção própria e dos itens de revenda."
+                        : view === "insights"
+                          ? "Os dados apontam caminhos. A decisão continua com você."
+                          : view === "chat"
+                            ? "Pergunte, entenda os números e planeje seu próximo passo."
+                            : "Uma base para começar pequeno e aprender com a rotina."}
               </p>
             </div>
             <div className="heading-actions">
@@ -337,13 +344,13 @@ export function Dashboard() {
                   title="Produtos vendidos"
                   value={number(totals.sold)}
                   icon={Package}
-                  footer={`${number(totals.produced)} unidades produzidas`}
+                  footer={"Produção própria + itens de revenda"}
                 />
                 <Metric
                   title="Perda por descarte"
                   value={money(totals.loss)}
                   icon={Leaf}
-                  footer={`${wasteRate.toFixed(1).replace(".", ",")}% da produção · valor ao custo`}
+                  footer={`${number(totals.discarded)} unidades descartadas · ao custo`}
                   warning
                 />
                 <Metric
@@ -409,6 +416,11 @@ export function Dashboard() {
                 </section>
               </div>
               <AnalyticsCharts records={records} />
+              <InventoryPanel
+                records={store.state.records}
+                days={days}
+                onExpand={() => navigate("inventory")}
+              />
               <ProductTable
                 records={records}
                 filteredProducts={products}
@@ -437,6 +449,9 @@ export function Dashboard() {
             </>
           )}
 
+          {view === "inventory" && (
+            <InventoryPanel records={store.state.records} days={days} />
+          )}
           {view === "products" && (
             <>
               <div className="search-row">
@@ -465,7 +480,9 @@ export function Dashboard() {
                     </button>
                   )}
                 </div>
-                <span>{filterProducts.length} de 5 produtos</span>
+                <span>
+                  {filterProducts.length} de {products.length} produtos
+                </span>
               </div>
               <ProductTable
                 records={records}
@@ -558,9 +575,9 @@ export function Dashboard() {
                       <tr>
                         <th>Data</th>
                         <th>Produto</th>
-                        <th className="numeric">Produzido</th>
+                        <th className="numeric">Produzido / disponível</th>
                         <th className="numeric">Vendido</th>
-                        <th className="numeric">Sobra</th>
+                        <th className="numeric">Saldo antes do descarte</th>
                         <th className="numeric">Descartado</th>
                         <th>Destino da sobra</th>
                         <th>Falta</th>
@@ -740,7 +757,7 @@ export function Dashboard() {
               <p>
                 O primeiro passo é entender a rotina. Esta demonstração
                 acompanha cinco produtos e 30 dias de produção para testar como
-                os dados podem ajudar a padaria.
+                os dados podem ajudar a padaria e o minimercado.
               </p>
               <dl>
                 <div>
@@ -756,7 +773,7 @@ export function Dashboard() {
                 </div>
                 <div>
                   <dt>Objetivo</dt>
-                  <dd>Reduzir sobras sem aumentar faltas</dd>
+                  <dd>Reduzir perdas, evitar faltas e melhorar as compras</dd>
                 </div>
                 <div>
                   <dt>Dados</dt>
@@ -798,7 +815,7 @@ export function Dashboard() {
           <footer className="page-footer">
             <span>
               Superdeli <span className="footer-dot">·</span> Feito para a
-              rotina da sua padaria.
+              rotina da padaria e do minimercado.
             </span>
             <span>Demonstração eia · todos os valores são fictícios</span>
           </footer>
@@ -863,7 +880,7 @@ function RevenueChart({ records }: { records: DailyRecord[] }) {
     <section className="panel chart-panel">
       <div className="panel-heading">
         <div>
-          <h2>O ritmo da padaria</h2>
+          <h2>O ritmo da Superdeli</h2>
           <p className="section-description">
             {metric === "revenue"
               ? "Vendas por dia, em reais"
@@ -961,6 +978,7 @@ function ProductTable({
   compact?: boolean;
   onExpand?: () => void;
 }) {
+  const inventory = inventorySummary(records);
   return (
     <section className="panel products-panel">
       <div className="panel-heading">
@@ -1004,8 +1022,12 @@ function ProductTable({
                 ? data.discarded / data.produced
                 : 0;
               const sold = data.produced ? data.sold / data.produced : 0;
-              const status =
-                data.stockouts > 0
+              const stock = inventory.find(
+                (item) => item.product.id === product.id,
+              );
+              const status = stock
+                ? stock.status
+                : data.stockouts > 0
                   ? "Faltou no balcão"
                   : rate > 0.16
                     ? "Revisar sobras"
@@ -1029,29 +1051,44 @@ function ProductTable({
                   </td>
                   <td className="numeric">{money(data.revenue)}</td>
                   <td className="balance-cell">
-                    <div
-                      className="balance-strip"
-                      aria-label={`${number(data.sold)} vendidas, ${number(data.leftover - data.discarded)} de outras sobras, ${number(data.discarded)} descartadas`}
-                    >
-                      <span
-                        className="balance-sold"
-                        style={{ width: `${sold * 100}%` }}
-                      />
-                      <span
-                        className="balance-retained"
-                        style={{
-                          width: `${Math.max(0, rate - discarded) * 100}%`,
-                        }}
-                      />
-                      <span
-                        className="balance-discarded"
-                        style={{ width: `${discarded * 100}%` }}
-                      />
-                    </div>
-                    <span className="cell-detail">
-                      {number(data.leftover)} de sobra ·{" "}
-                      {number(data.discarded)} descartadas
-                    </span>
+                    {stock ? (
+                      <>
+                        <strong>
+                          {stock.stock === null
+                            ? "Sem registro"
+                            : `${number(stock.stock)} ${product.unit}`}
+                        </strong>
+                        <span className="cell-detail">
+                          Estoque final · mínimo {product.minimumStock}
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <div
+                          className="balance-strip"
+                          aria-label={`${number(data.sold)} vendidas, ${number(data.leftover - data.discarded)} de outras sobras, ${number(data.discarded)} descartadas`}
+                        >
+                          <span
+                            className="balance-sold"
+                            style={{ width: `${sold * 100}%` }}
+                          />
+                          <span
+                            className="balance-retained"
+                            style={{
+                              width: `${Math.max(0, rate - discarded) * 100}%`,
+                            }}
+                          />
+                          <span
+                            className="balance-discarded"
+                            style={{ width: `${discarded * 100}%` }}
+                          />
+                        </div>
+                        <span className="cell-detail">
+                          {number(data.leftover)} de sobra ·{" "}
+                          {number(data.discarded)} descartadas
+                        </span>
+                      </>
+                    )}
                   </td>
                   {!compact && (
                     <td className="numeric">
@@ -1111,6 +1148,12 @@ function RecordForm({
   const [productId, setProductId] = useState(products[0].id);
   const [date, setDate] = useState(DEMO_END);
   const [produced, setProduced] = useState("");
+  const [openingStock, setOpeningStock] = useState("");
+  const retail =
+    products.find((p) => p.id === productId)?.operation === "retail";
+  const available = retail
+    ? Number(openingStock) + Number(produced)
+    : Number(produced);
   const [sold, setSold] = useState("");
   const [discarded, setDiscarded] = useState("");
   const [stockout, setStockout] = useState("");
@@ -1122,11 +1165,15 @@ function RecordForm({
     (r) => r.date === date && r.productId === productId,
   );
   const leftover =
-    produced !== "" && sold !== "" ? Number(produced) - Number(sold) : null;
+    produced !== "" && sold !== "" ? available - Number(sold) : null;
   function submit(event: FormEvent) {
     event.preventDefault();
     setSaved(false);
-    if ([produced, sold, discarded].some((v) => !v.trim())) {
+    if (
+      [produced, sold, discarded, ...(retail ? [openingStock] : [])].some(
+        (v) => !v.trim(),
+      )
+    ) {
       setError(
         "Preencha produção, vendas e descartes. Use 0 quando não houver unidades.",
       );
@@ -1138,11 +1185,14 @@ function RecordForm({
     const record = {
       date,
       productId,
-      produced: Number(produced),
+      produced: available,
+      ...(retail
+        ? { openingStock: Number(openingStock), received: Number(produced) }
+        : {}),
       sold: Number(sold),
       discarded: Number(discarded),
       stockout,
-      leftoverDestination,
+      leftoverDestination: retail ? ("stock" as const) : leftoverDestination,
     };
     const issue = validateRecord(record);
     if (issue) {
@@ -1165,7 +1215,8 @@ function RecordForm({
   }
   function loadExisting() {
     if (!existing) return;
-    setProduced(String(existing.produced));
+    setProduced(String(retail ? existing.received : existing.produced));
+    setOpeningStock(String(existing.openingStock ?? ""));
     setSold(String(existing.sold));
     setDiscarded(String(existing.discarded));
     setStockout(existing.stockout);
@@ -1186,7 +1237,15 @@ function RecordForm({
           <select
             id="record-product"
             value={productId}
-            onChange={(e) => setProductId(e.target.value)}
+            onChange={(e) => {
+              setProductId(e.target.value);
+              setProduced("");
+              setOpeningStock("");
+              setSold("");
+              setDiscarded("");
+              setStockout("");
+              setError("");
+            }}
           >
             {products.map((p) => (
               <option key={p.id} value={p.id}>
@@ -1209,11 +1268,30 @@ function RecordForm({
           />
         </div>
       </div>
+      {retail && (
+        <div className="field">
+          <label htmlFor="record-opening-stock">Estoque inicial</label>
+          <input
+            id="record-opening-stock"
+            type="number"
+            min="0"
+            max="100000"
+            step="1"
+            value={openingStock}
+            onChange={(e) => setOpeningStock(e.target.value)}
+          />
+          <p className="field-help">
+            Conte o estoque no início do dia. Entradas são as unidades
+            recebidas; saldo final fica em estoque para o próximo dia. Cada
+            registro é uma contagem independente.
+          </p>
+        </div>
+      )}
       <div className="form-row quantities">
         {[
           {
             id: "produced",
-            label: "Produzido",
+            label: retail ? "Entradas" : "Produzido",
             value: produced,
             setter: setProduced,
           },
@@ -1245,30 +1323,34 @@ function RecordForm({
         ))}
       </div>
       <p id="balance-help" className="field-help">
-        {leftover !== null && leftover >= 0
-          ? `${number(leftover)} unidades de sobra${discarded ? ` · ${number(Math.max(0, leftover - Number(discarded)))} não descartadas` : ""}.`
-          : "Sobra = produção − vendas. Descarte é parte da sobra."}
+        {retail
+          ? `Disponível: ${number(available)} · estoque final: ${number(Math.max(0, available - Number(sold) - Number(discarded)))}. Estoque não vendido não é desperdício.`
+          : leftover !== null && leftover >= 0
+            ? `${number(leftover)} unidades de sobra${discarded ? ` · ${number(Math.max(0, leftover - Number(discarded)))} não descartadas` : ""}.`
+            : "Sobra = produção − vendas. Descarte é parte da sobra."}
       </p>
-      <div className="field destination-field">
-        <label htmlFor="record-destination">
-          Destino da sobra não descartada
-        </label>
-        <select
-          id="record-destination"
-          value={leftoverDestination}
-          onChange={(e) =>
-            setLeftoverDestination(
-              e.target.value as keyof typeof leftoverDestinations,
-            )
-          }
-        >
-          {Object.entries(leftoverDestinations).map(([id, label]) => (
-            <option key={id} value={id}>
-              {label}
-            </option>
-          ))}
-        </select>
-      </div>
+      {!retail && (
+        <div className="field destination-field">
+          <label htmlFor="record-destination">
+            Destino da sobra não descartada
+          </label>
+          <select
+            id="record-destination"
+            value={leftoverDestination}
+            onChange={(e) =>
+              setLeftoverDestination(
+                e.target.value as keyof typeof leftoverDestinations,
+              )
+            }
+          >
+            {Object.entries(leftoverDestinations).map(([id, label]) => (
+              <option key={id} value={id}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
       <div className="field">
         <label htmlFor="record-stockout">
           Acabou antes de fechar? <span>Opcional</span>
@@ -1317,5 +1399,135 @@ function RecordForm({
         Salvar registro
       </button>
     </form>
+  );
+}
+
+function InventoryPanel({
+  records,
+  days,
+  onExpand,
+}: {
+  records: DailyRecord[];
+  days: number;
+  onExpand?: () => void;
+}) {
+  const inventory = inventorySummary(records, DEMO_END, days);
+  const stockValue = inventory.reduce((sum, item) => sum + item.stockAtCost, 0);
+  return (
+    <section className="panel inventory-panel">
+      <div className="panel-heading">
+        <div>
+          <h2>Nas prateleiras e no freezer</h2>
+          <p className="section-description">
+            Mercadorias de revenda · última contagem até {dateLabel(DEMO_END)}.
+          </p>
+        </div>
+        {onExpand && (
+          <button className="text-button" onClick={onExpand}>
+            Ver estoque <ArrowRight size={16} />
+          </button>
+        )}
+      </div>
+      <div className="inventory-summary">
+        <div>
+          <span>Estoque ao custo</span>
+          <strong>{money(stockValue)}</strong>
+        </div>
+        <div>
+          <span>Precisam de reposição</span>
+          <strong>
+            {inventory.filter((item) => item.status === "Repor estoque").length}{" "}
+            {inventory.filter((item) => item.status === "Repor estoque")
+              .length === 1
+              ? "produto"
+              : "produtos"}
+          </strong>
+        </div>
+        <div>
+          <span>Sem giro recente</span>
+          <strong>
+            {
+              inventory.filter((item) => item.status === "Sem giro recente")
+                .length
+            }{" "}
+            {inventory.filter((item) => item.status === "Sem giro recente")
+              .length === 1
+              ? "produto"
+              : "produtos"}
+          </strong>
+        </div>
+      </div>
+      <div className="table-scroll">
+        <table>
+          <caption className="sr-only">Estoque dos itens de revenda</caption>
+          <thead>
+            <tr>
+              <th>Produto</th>
+              <th className="numeric">Estoque final</th>
+              <th className="numeric">Mínimo</th>
+              <th>Última venda</th>
+              <th>Cobertura estimada</th>
+              <th>Situação</th>
+            </tr>
+          </thead>
+          <tbody>
+            {inventory.map((item) => (
+              <tr key={item.product.id}>
+                <th scope="row">
+                  <div className="product-name">
+                    <span className="product-avatar avatar-1">
+                      <Package size={20} />
+                    </span>
+                    <div>
+                      <strong>{item.product.name}</strong>
+                      <span>{item.product.category} · revenda</span>
+                    </div>
+                  </div>
+                </th>
+                <td className="numeric">
+                  {item.stock === null ? "—" : number(item.stock)}
+                  <span className="cell-detail">
+                    {item.product.unit} ·{" "}
+                    {item.recordedDate
+                      ? dateLabel(item.recordedDate)
+                      : "sem contagem"}
+                  </span>
+                </td>
+                <td className="numeric">{item.product.minimumStock}</td>
+                <td>
+                  {item.lastSaleDate
+                    ? dateLabel(item.lastSaleDate)
+                    : "Sem venda registrada"}
+                  {item.daysWithoutSale !== null &&
+                    item.daysWithoutSale > 0 && (
+                      <span className="cell-detail">
+                        {item.daysWithoutSale} dias sem venda
+                      </span>
+                    )}
+                </td>
+                <td>
+                  {item.coverageDays === null
+                    ? "Sem vendas no período"
+                    : `${number(item.coverageDays)} dias`}
+                </td>
+                <td>
+                  <span
+                    className={`badge ${item.status === "Em equilíbrio" ? "success" : "warning"}`}
+                  >
+                    {item.status}
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="inventory-note">
+        Estoque final = estoque inicial + entradas − vendas − descartes. Usamos
+        a última contagem, sem somar saldos diários. Cobertura pela média dos
+        dias registrados no período; validade e temperatura ainda não são
+        acompanhadas. Preços, embalagens e mínimos são exemplos fictícios.
+      </p>
+    </section>
   );
 }

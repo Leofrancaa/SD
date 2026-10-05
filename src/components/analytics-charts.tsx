@@ -56,7 +56,7 @@ function BestSellers({ records }: { records: DailyRecord[] }) {
           <Trophy size={19} />
           <h2>Os favoritos do balcão</h2>
         </div>
-        <span className="analytics-caption">5 produtos</span>
+        <span className="analytics-caption">Top 5</span>
       </div>
       <p className="section-description">
         {metric === "sold"
@@ -82,7 +82,7 @@ function BestSellers({ records }: { records: DailyRecord[] }) {
         ))}
       </div>
       <ol className="ranking-list">
-        {ranked.map((item, index) => (
+        {ranked.slice(0, 5).map((item, index) => (
           <li key={item.product.id}>
             <span className={`rank-number ${index === 0 ? "first" : ""}`}>
               {index + 1}
@@ -285,7 +285,7 @@ function WasteChart({ records }: { records: DailyRecord[] }) {
         <span>em perdas por descarte</span>
       </div>
       <ul className="waste-list">
-        {ranked.map((item) => (
+        {ranked.slice(0, 5).map((item) => (
           <li key={item.product.id}>
             <div className="ranking-label">
               <span>{item.product.name}</span>

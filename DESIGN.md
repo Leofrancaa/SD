@@ -1,7 +1,7 @@
 ---
 version: alpha
 name: Superdeli
-description: A bakery production desk informed by Superdeli's orange and charcoal storefront.
+description: A bakery and minimarket management desk informed by Superdeli's orange and charcoal storefront.
 colors:
   primary: "#BD480C"
   accent: "#EAAA35"
@@ -29,7 +29,7 @@ spacing:
 
 ## Overview
 
-Product register. A preparation desk for a bakery owner checking production between service periods. The signature is a production balance strip: sold, remaining and discarded quantities share the same physical tray, showing where each batch went. A light workspace supports daytime use; a charcoal navigation rail recalls the storefront lettering. Use orange for actions, wheat yellow for pending attention and restrained green for positive operational states.
+Product register. A management desk for a bakery and minimarket owner checking production, sales and resale inventory between service periods. Retail inventory uses dated closing snapshots, separate from bakery production balances. The signature is a production balance strip: sold, remaining and discarded quantities share the same physical tray, showing where each batch went. A light workspace supports daytime use; a charcoal navigation rail recalls the storefront lettering. Use orange for actions, wheat yellow for pending attention and restrained green for positive operational states.
 
 The user's supplied reference and a public storefront photograph ground the palette. This is a provisional interface identity, not an official logo. The type wordmark uses Manrope; body and controls use locally packaged DM Sans. Anti-references: decorative bakery illustrations, dark full-page dashboards, and speculative business claims.
 

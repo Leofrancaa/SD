@@ -41,7 +41,11 @@ export function weekdayAverages(records: DailyRecord[]) {
 }
 
 export function productionOutcomes(records: DailyRecord[]) {
-  const totals = summarize(records);
+  const totals = summarize(
+    records.filter(
+      (row) => !products.find((p) => p.id === row.productId)?.operation,
+    ),
+  );
   return {
     produced: totals.produced,
     sold: totals.sold,

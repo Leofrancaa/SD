@@ -50,7 +50,7 @@ export async function POST(request: Request) {
       { status: 415 },
     );
   const length = Number(request.headers.get("content-length") ?? 0);
-  if (length > 60000)
+  if (length > 180000)
     return Response.json(
       { error: "A conversa está muito longa. Envie uma pergunta mais curta." },
       { status: 413 },
@@ -59,7 +59,7 @@ export async function POST(request: Request) {
   let records;
   try {
     const body = await request.text();
-    if (new TextEncoder().encode(body).length > 60000)
+    if (new TextEncoder().encode(body).length > 180000)
       return Response.json(
         {
           error: "A conversa está muito longa. Envie uma pergunta mais curta.",
@@ -116,7 +116,7 @@ export async function POST(request: Request) {
       tools: {
         getBakeryReport: tool({
           description:
-            "Return verified synthetic bakery calculations for a date range or specific product. Date range must fall between 2026-09-06 and 2026-10-05. Product IDs: french-bread, cheese-bread, coxinha, corn-cake, cheese-pastry. Use to answer explicit dates or periods outside the currently selected range.",
+            "Return verified synthetic bakery and minimarket calculations for a date range or specific product. Date range must fall between 2026-09-06 and 2026-10-05. Use product IDs from the authoritative report. Use to answer explicit dates or periods outside the currently selected range.",
           inputSchema: z.object({
             startDate: z.string(),
             endDate: z.string(),

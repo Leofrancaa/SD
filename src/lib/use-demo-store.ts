@@ -3,6 +3,7 @@
 import { useSyncExternalStore } from "react";
 import {
   generateRecords,
+  extendCatalog,
   parseState,
   STORAGE_KEY,
   type DemoState,
@@ -26,7 +27,7 @@ function load() {
   try {
     lastRaw = localStorage.getItem(STORAGE_KEY);
     publish({
-      state: lastRaw ? parseState(lastRaw) : initial.state,
+      state: lastRaw ? extendCatalog(parseState(lastRaw)) : initial.state,
       ready: true,
       error: "",
     });

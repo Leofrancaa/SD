@@ -2630,3 +2630,39 @@ tbody tr:hover {
     border: 1px solid ButtonText;
   }
 }
+
+.inventory-panel {
+  margin: 24px 0;
+}
+.inventory-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 24px;
+  padding: 20px 24px;
+  border-block: 1px solid var(--border);
+}
+.inventory-summary span {
+  display: block;
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+.inventory-summary strong {
+  font-size: 22px;
+}
+.inventory-note {
+  padding: 16px 24px;
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--muted);
+}
+@media (max-width: 600px) {
+  .inventory-summary {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+}
+
+.inventory-panel > .panel-heading {
+  padding: 24px;
+}

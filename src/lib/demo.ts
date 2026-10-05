@@ -6,6 +6,8 @@ export type Product = {
   cost: number;
   unit: string;
   initials: string;
+  operation?: "retail";
+  minimumStock?: number;
 };
 export type DailyRecord = {
   date: string;
@@ -14,6 +16,8 @@ export type DailyRecord = {
   sold: number;
   discarded: number;
   stockout: string;
+  openingStock?: number;
+  received?: number;
   leftoverDestination?: keyof typeof leftoverDestinations;
 };
 export const leftoverDestinations = {
@@ -76,6 +80,105 @@ export const products: Product[] = [
     unit: "un.",
     initials: "PQ",
   },
+  {
+    id: "ground-coffee",
+    name: "Café em pó · 500 g",
+    category: "Mercearia",
+    price: 18.9,
+    cost: 13.5,
+    unit: "emb.",
+    initials: "CA",
+    operation: "retail",
+    minimumStock: 12,
+  },
+  {
+    id: "milk",
+    name: "Leite · 1 L",
+    category: "Mercearia",
+    price: 6.5,
+    cost: 4.7,
+    unit: "emb.",
+    initials: "LE",
+    operation: "retail",
+    minimumStock: 18,
+  },
+  {
+    id: "nescau",
+    name: "Nescau · 400 g",
+    category: "Mercearia",
+    price: 12.9,
+    cost: 9.2,
+    unit: "emb.",
+    initials: "NE",
+    operation: "retail",
+    minimumStock: 8,
+  },
+  {
+    id: "pre-baked",
+    name: "Pré-assados · pacote",
+    category: "Congelados",
+    price: 16.9,
+    cost: 11.5,
+    unit: "emb.",
+    initials: "PR",
+    operation: "retail",
+    minimumStock: 8,
+  },
+  {
+    id: "ice",
+    name: "Gelo · 5 kg",
+    category: "Congelados",
+    price: 10,
+    cost: 6,
+    unit: "emb.",
+    initials: "GE",
+    operation: "retail",
+    minimumStock: 10,
+  },
+  {
+    id: "frozen-strawberry",
+    name: "Morango congelado · 1 kg",
+    category: "Congelados",
+    price: 24.9,
+    cost: 17,
+    unit: "emb.",
+    initials: "MO",
+    operation: "retail",
+    minimumStock: 6,
+  },
+  {
+    id: "frozen-pizza",
+    name: "Pizza congelada",
+    category: "Congelados",
+    price: 22.9,
+    cost: 15.5,
+    unit: "emb.",
+    initials: "PI",
+    operation: "retail",
+    minimumStock: 8,
+  },
+  {
+    id: "cheese",
+    name: "Queijo · embalagem 200 g",
+    category: "Frios",
+    price: 11.9,
+    cost: 8,
+    unit: "emb.",
+    initials: "QU",
+    operation: "retail",
+    minimumStock: 12,
+  },
+  {
+    id: "ham",
+    name: "Presunto · embalagem 200 g",
+    category: "Frios",
+    price: 8.9,
+    cost: 5.8,
+    unit: "emb.",
+    initials: "PR",
+    operation: "retail",
+    minimumStock: 12,
+  },
 ];
 export const money = (value: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
@@ -99,10 +202,46 @@ export function addDays(date: string, days: number) {
 }
 export function generateRecords(): DailyRecord[] {
   const base = [520, 140, 100, 48, 72];
+  const inventory = new Map(
+    products.filter((p) => p.operation === "retail").map((p) => [p.id, 40]),
+  );
   return Array.from({ length: 30 }, (_, day) => {
     const date = addDays(DEMO_END, day - 29);
     const weekday = new Date(`${date}T12:00:00Z`).getUTCDay();
     return products.map((product, index) => {
+      if (product.operation === "retail") {
+        const openingStock = inventory.get(product.id)!;
+        const received =
+          day % 7 === 0 && product.id !== "frozen-strawberry" ? 24 : 0;
+        const produced = openingStock + received;
+        const demand =
+          product.id === "frozen-strawberry"
+            ? day < 5
+              ? 2
+              : 0
+            : product.id === "milk"
+              ? 5
+              : 2 + ((day + index) % 3);
+        const sold = Math.min(produced, demand);
+        const discarded =
+          (product.id === "cheese" || product.id === "ham") &&
+          day % 11 === 0 &&
+          produced > sold
+            ? 1
+            : 0;
+        inventory.set(product.id, produced - sold - discarded);
+        return {
+          date,
+          productId: product.id,
+          openingStock,
+          received,
+          produced,
+          sold,
+          discarded,
+          stockout: sold === produced && demand > sold ? "18:00" : "",
+          leftoverDestination: "stock" as const,
+        };
+      }
       const produced = Math.round(
         base[index] * (weekday === 0 || weekday === 6 ? 1.22 : 1) +
           ((day * 7 + index * 11) % 19),
@@ -148,6 +287,14 @@ export function validateRecord(record: DailyRecord): string | null {
     )
   )
     return "Use quantidades inteiras entre 0 e 100.000.";
+  if (
+    products.find((p) => p.id === record.productId)?.operation === "retail" &&
+    (![record.openingStock, record.received].every(
+      (n) => Number.isSafeInteger(n) && n! >= 0 && n! <= 100000,
+    ) ||
+      record.produced !== record.openingStock! + record.received!)
+  )
+    return "O disponível deve corresponder ao estoque inicial mais as entradas.";
   if (record.sold + record.discarded > record.produced)
     return "Vendas e descartes não podem superar a produção. Corrija as quantidades.";
   if (record.stockout && !/^([01]\d|2[0-3]):[0-5]\d$/.test(record.stockout))
@@ -235,6 +382,7 @@ export function recommendations(records: DailyRecord[]) {
     (r) => r.productId === "cheese-bread" && r.stockout,
   );
   const waste = products
+    .filter((p) => !p.operation)
     .map((p) => ({ product: p, ...productSummary(records, p.id) }))
     .sort((a, b) => b.loss - a.loss)[0];
   const average = tuesdays.length
@@ -268,6 +416,22 @@ export function recommendations(records: DailyRecord[]) {
           },
         ]
       : []),
+    ...inventorySummary(records)
+      .filter((item) => item.stock !== null && item.status !== "Em equilíbrio")
+      .map((item) => ({
+        id: `inventory-${item.product.id}`,
+        tone: "warning",
+        title:
+          item.status === "Repor estoque"
+            ? `Reposição: ${item.product.name}`
+            : `Confira o giro: ${item.product.name}`,
+        description:
+          item.status === "Repor estoque"
+            ? `${item.stock} embalagens na última contagem; mínimo ilustrativo de ${item.product.minimumStock}. Confira o saldo e as compras em andamento antes de repor.`
+            : `${item.stock} embalagens em estoque e ${item.daysWithoutSale} dias sem venda registrada. Confira validade e procura antes de planejar uma promoção.`,
+        productId: item.product.id,
+        action: "Revisar estoque",
+      })),
     ...(waste.loss > 0
       ? [
           {
@@ -287,7 +451,7 @@ export function toCsv(records: DailyRecord[]) {
     [
       "Data",
       "Produto",
-      "Produzido",
+      "Produzido ou disponível",
       "Vendido",
       "Sobra",
       "Descartado",
@@ -296,6 +460,10 @@ export function toCsv(records: DailyRecord[]) {
       "Horário da falta",
       "Receita simulada (BRL)",
       "Perda ao custo (BRL)",
+      "Operação",
+      "Estoque inicial",
+      "Entradas",
+      "Estoque final",
     ],
     ...records.map((r) => {
       const p = products.find((p) => p.id === r.productId)!;
@@ -311,6 +479,10 @@ export function toCsv(records: DailyRecord[]) {
         r.stockout,
         (r.sold * p.price).toFixed(2),
         (r.discarded * p.cost).toFixed(2),
+        p.operation === "retail" ? "Revenda" : "Produção própria",
+        r.openingStock ?? "",
+        r.received ?? "",
+        p.operation === "retail" ? r.produced - r.sold - r.discarded : "",
       ];
     }),
   ];
@@ -322,4 +494,65 @@ export function toCsv(records: DailyRecord[]) {
       )
       .join("\r\n")
   );
+}
+
+export function extendCatalog(state: DemoState): DemoState {
+  const existing = new Set(state.records.map((row) => row.productId));
+  const additions = generateRecords().filter(
+    (row) =>
+      products.find((p) => p.id === row.productId)?.operation === "retail" &&
+      !existing.has(row.productId),
+  );
+  return additions.length
+    ? { ...state, records: [...state.records, ...additions] }
+    : state;
+}
+
+export function inventorySummary(
+  records: DailyRecord[],
+  endDate = DEMO_END,
+  days = 7,
+) {
+  return products
+    .filter((p) => p.operation === "retail")
+    .map((product) => {
+      const history = records
+        .filter((r) => r.productId === product.id && r.date <= endDate)
+        .sort((a, b) => a.date.localeCompare(b.date));
+      const latest = history.at(-1);
+      const lastSale = history.filter((r) => r.sold > 0).at(-1);
+      const stock = latest
+        ? latest.produced - latest.sold - latest.discarded
+        : null;
+      const startDate = addDays(endDate, -(days - 1));
+      const selected = history.filter((r) => r.date >= startDate);
+      const averageSales = selected.length
+        ? selected.reduce((sum, r) => sum + r.sold, 0) / selected.length
+        : 0;
+      const daysWithoutSale = lastSale
+        ? Math.round(
+            (Date.parse(endDate) - Date.parse(lastSale.date)) / 86400000,
+          )
+        : null;
+      const status =
+        stock === null
+          ? "Sem registro"
+          : stock <= product.minimumStock!
+            ? "Repor estoque"
+            : daysWithoutSale !== null && daysWithoutSale >= 14
+              ? "Sem giro recente"
+              : "Em equilíbrio";
+      return {
+        product,
+        stock,
+        recordedDate: latest?.date ?? null,
+        lastSaleDate: lastSale?.date ?? null,
+        daysWithoutSale,
+        coverageDays: averageSales
+          ? Math.round((stock! / averageSales) * 10) / 10
+          : null,
+        stockAtCost: stock === null ? 0 : stock * product.cost,
+        status,
+      };
+    });
 }
