@@ -14,6 +14,7 @@ import {
   LayoutDashboard,
   Leaf,
   MapPin,
+  MessageCircle,
   Package,
   Plus,
   Search,
@@ -44,13 +45,16 @@ import {
 } from "@/lib/demo";
 import { useDemoStore } from "@/lib/use-demo-store";
 import { AnalyticsCharts } from "./analytics-charts";
+import { BakeryChat } from "./bakery-chat";
 
-type View = "overview" | "production" | "products" | "insights" | "settings";
+type View =
+  "overview" | "production" | "products" | "insights" | "chat" | "settings";
 const navigation: { id: View; title: string; icon: LucideIcon }[] = [
   { id: "overview", title: "Visão geral", icon: LayoutDashboard },
   { id: "production", title: "Produção e vendas", icon: ClipboardList },
   { id: "products", title: "Produtos", icon: Package },
   { id: "insights", title: "Sugestões eia", icon: Sparkles },
+  { id: "chat", title: "Conversar com a eia", icon: MessageCircle },
   { id: "settings", title: "Sobre o piloto", icon: Settings2 },
 ];
 
@@ -256,7 +260,9 @@ export function Dashboard() {
                       ? "Conheça o retorno e as sobras dos cinco produtos do piloto."
                       : view === "insights"
                         ? "Os dados apontam caminhos. A decisão continua com você."
-                        : "Uma base para começar pequeno e aprender com a rotina."}
+                        : view === "chat"
+                          ? "Pergunte, entenda os números e planeje seu próximo passo."
+                          : "Uma base para começar pequeno e aprender com a rotina."}
               </p>
             </div>
             <div className="heading-actions">
@@ -398,7 +404,7 @@ export function Dashboard() {
                     <ArrowRight size={16} />
                   </button>
                   <span className="rule-note">
-                    Demonstração por regras · sem IA conectada
+                    Sugestões por regras · consulte a IA no chat
                   </span>
                 </section>
               </div>
@@ -762,7 +768,7 @@ export function Dashboard() {
                 </div>
                 <div>
                   <dt>Sugestões</dt>
-                  <dd>Regras demonstrativas; IA ainda não conectada</dd>
+                  <dd>Regras demonstrativas e chat com IA via Groq</dd>
                 </div>
               </dl>
               <h3>Para começar na padaria</h3>
@@ -782,6 +788,13 @@ export function Dashboard() {
               </a>
             </section>
           )}
+          <div hidden={view !== "chat"}>
+            <BakeryChat
+              records={store.state.records}
+              days={days as 7 | 14 | 30}
+              active={view === "chat"}
+            />
+          </div>
           <footer className="page-footer">
             <span>
               Superdeli <span className="footer-dot">·</span> Feito para a

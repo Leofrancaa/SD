@@ -6,6 +6,7 @@ import "@fontsource/dm-sans/700.css";
 import "@fontsource/manrope/500.css";
 import "@fontsource/manrope/600.css";
 import "@fontsource/manrope/700.css";
+import "streamdown/styles.css";
 import "./globals.css";
 
 export const metadata: Metadata = {

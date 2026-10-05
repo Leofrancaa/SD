@@ -9,7 +9,7 @@ npm ci
 npm run dev
 ```
 
-Open http://localhost:3000. No environment variables or API keys are required.
+Open http://localhost:3000. The dashboard works without credentials. For chat, copy `.env.example` to `.env.local` and set `GROQ_API_KEY`. Never use a `NEXT_PUBLIC_` prefix for this credential. `GROQ_MODEL` optionally overrides the default `openai/gpt-oss-120b`. If the primary model is rate-limited or unavailable before emitting any text, the server makes one bounded attempt with `openai/gpt-oss-20b`; partial responses are never mixed across models.
 
 ## Verify
 
@@ -24,11 +24,13 @@ npx playwright test
 
 ## Deploy to Vercel
 
-Import `Leofrancaa/SD`, select Next.js and use the repository root. The build command is `npm run build`; output detection is automatic. No environment variables are required. Preview and production use the same synthetic dataset.
+Import `Leofrancaa/SD`, select Next.js and use the repository root. The build command is `npm run build`; output detection is automatic. Set `GROQ_API_KEY` as a sensitive server environment variable for production and preview. Redeploy after changing it. Preview and production use the same synthetic dataset.
 
 ## Demo boundaries
 
-Daily records and reviewed suggestions persist in browser localStorage only. CSV exports provide a portable copy. Storage errors retain entered fields; corrupted saved data is protected from overwrite. Suggestions are rule-based, with no connected AI provider. Approval records a planning decision and never changes production automatically. Discarded loss is calculated at production cost. Estimated return excludes fixed operating expenses. Revenue, prices, costs and product quantities are illustrative.
+Daily records and reviewed suggestions persist in browser localStorage only. CSV exports provide a portable copy. Storage errors retain entered fields; corrupted saved data is protected from overwrite. Dashboard suggestions are rule-based; the chat uses Groq through a server endpoint. Approval records a planning decision and never changes production automatically. Discarded loss is calculated at production cost. Estimated return excludes fixed operating expenses. Revenue, prices, costs and product quantities are illustrative.
+
+Chat history stays in the mounted browser session and is not saved by the application. Questions and synthetic records are sent to Groq for generation; avoid personal data. The server validates records and roles, calculates reports, rejects foreign origins, limits request/history sizes, caps output and tool steps, supports cancellation, and masks provider failures. The in-memory limit is eight requests per minute per IP **per server instance**, not a distributed quota or authentication boundary. Add durable rate limits and authentication before expanding public access or accepting real business data. AI answers can still be wrong; users must review them.
 
 Before using real records, add authentication, an authorized shared database, audited data imports and backup procedures. Confirm the catalog, costs, operating hours, brand assets and daily workflow with the owner.
 
