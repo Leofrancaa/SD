@@ -896,7 +896,13 @@ function RevenueChart({ records }: { records: DailyRecord[] }) {
             <i />
             <i />
           </div>
-          <div className="bars">
+          <div
+            className="bars"
+            style={{
+              gridTemplateColumns: `repeat(${Math.max(1, series.length)}, minmax(0, 1fr))`,
+              gap: series.length > 14 ? "3px" : undefined,
+            }}
+          >
             {series.map((day, index) => (
               <div className="bar-column" key={day.date}>
                 <div

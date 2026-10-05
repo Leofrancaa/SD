@@ -1,5 +1,42 @@
 import { expect, test } from "@playwright/test";
 
+test("daily bars retain visible dimensions for every range on desktop and mobile", async ({
+  page,
+}) => {
+  for (const width of [1280, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/");
+    for (const days of [7, 14, 30]) {
+      await page
+        .getByRole("button", { name: `${days} dias`, exact: true })
+        .click();
+      for (const metric of ["Vendas", "Perdas"]) {
+        await page.getByRole("button", { name: metric, exact: true }).click();
+        await expect(page.locator(".bar")).toHaveCount(days);
+        const bounds = await page.locator(".bar").evaluateAll((bars) =>
+          bars.map((bar) => {
+            const rect = bar.getBoundingClientRect();
+            const plot = bar.closest(".plot")!.getBoundingClientRect();
+            return {
+              width: rect.width,
+              height: rect.height,
+              insidePlot: rect.left >= plot.left && rect.right <= plot.right,
+            };
+          }),
+        );
+        for (const bar of bounds) {
+          expect(bar.width).toBeGreaterThanOrEqual(2);
+          expect(bar.height).toBeGreaterThan(2);
+          expect(bar.insidePlot).toBe(true);
+        }
+      }
+    }
+    await page
+      .locator(".chart-panel")
+      .screenshot({ path: `test-results/rhythm-30-days-${width}.png` });
+  }
+});
+
 test("analytics show rankings, weekday averages and production outcomes for the selected range", async ({
   page,
 }) => {
