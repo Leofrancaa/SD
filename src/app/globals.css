@@ -2666,3 +2666,466 @@ tbody tr:hover {
 .inventory-panel > .panel-heading {
   padding: 24px;
 }
+
+.sidebar {
+  overflow-y: auto;
+}
+.sidebar-bottom {
+  flex-shrink: 0;
+}
+.owner-briefing {
+  margin: 28px 0;
+  border-block: 1px solid var(--border);
+}
+.owner-briefing-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 22px 0 16px;
+}
+.owner-briefing-heading h2 {
+  font-size: 22px;
+  margin-top: 6px;
+}
+.owner-date {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.owner-priorities {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.owner-priorities li {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 0;
+  border-top: 1px solid var(--border);
+}
+.owner-priorities li > svg {
+  color: var(--primary);
+  flex-shrink: 0;
+}
+.owner-priorities li > div {
+  flex: 1;
+  min-width: 0;
+}
+.priority-category {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  margin-bottom: 5px;
+}
+.owner-priorities h3 {
+  font-size: 14px;
+}
+.owner-priorities p {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.65;
+  margin-top: 5px;
+  max-width: 72ch;
+}
+.owner-context {
+  font-size: 11px;
+  color: var(--muted);
+  padding: 14px 0 18px;
+}
+.owner-empty {
+  padding: 20px;
+  color: var(--muted);
+  line-height: 1.7;
+}
+.purchase-heading,
+.purchase-toolbar,
+.purchase-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+  padding: 24px;
+}
+.purchase-heading h2 {
+  font-size: 22px;
+  margin-top: 8px;
+}
+.purchase-heading > svg {
+  color: var(--primary);
+  flex-shrink: 0;
+}
+.purchase-heading p {
+  font-size: 13px;
+  color: var(--muted);
+  margin-top: 8px;
+  line-height: 1.6;
+}
+.purchase-toolbar {
+  justify-content: flex-start;
+  background: var(--background);
+  border-block: 1px solid var(--border);
+}
+.purchase-toolbar .field {
+  margin: 0;
+  width: 150px;
+  flex-shrink: 0;
+}
+.purchase-toolbar > p {
+  color: var(--muted);
+  max-width: 60ch;
+  font-size: 13px;
+  line-height: 1.7;
+}
+.purchase-planner input[type="checkbox"] {
+  width: 19px;
+  height: 19px;
+  accent-color: var(--primary);
+  cursor: pointer;
+}
+.purchase-planner th {
+  white-space: normal;
+}
+.purchase-selected {
+  background: var(--primary-soft);
+}
+.purchase-quantity {
+  width: 88px;
+  min-height: 40px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  padding: 8px;
+  color: var(--ink);
+  font: inherit;
+}
+.purchase-quantity[aria-invalid="true"] {
+  border-color: var(--danger);
+}
+.purchase-total {
+  border-top: 1px solid var(--border);
+}
+.purchase-total span,
+.purchase-total small {
+  display: block;
+  font-size: 12px;
+  color: var(--muted);
+}
+.purchase-total strong {
+  display: block;
+  font-size: 26px;
+  margin: 6px 0;
+  font-variant-numeric: tabular-nums;
+}
+.purchase-note {
+  margin: 0 24px;
+  padding-bottom: 20px;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.7;
+  max-width: 80ch;
+}
+.purchase-error {
+  margin: 0 24px 16px;
+}
+.owner-report {
+  padding: 32px;
+}
+.report-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+.report-heading h2 {
+  font-size: 28px;
+  margin: 9px 0;
+}
+.report-heading p {
+  color: var(--muted);
+  font-size: 13px;
+}
+.report-disclosure {
+  background: var(--warning-soft);
+  color: var(--warning-ink);
+  padding: 14px 16px;
+  margin: 24px 0;
+  font-size: 12px;
+  line-height: 1.7;
+  border-radius: 8px;
+}
+.report-financial {
+  max-width: 760px;
+}
+.report-financial h3,
+.report-comparison h3,
+.report-ranking h3,
+.report-next-steps h3 {
+  font-size: 17px;
+  margin-bottom: 16px;
+}
+.report-financial dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+.report-financial dt {
+  font-size: 14px;
+}
+.report-financial dd {
+  margin: 0;
+  font-weight: 600;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.report-financial .report-return {
+  font-weight: 600;
+  font-size: 20px;
+  padding: 16px 0;
+  border-bottom: 0;
+}
+.report-financial > p,
+.report-comparison p {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.7;
+  max-width: 75ch;
+}
+.report-operational {
+  display: flex;
+  gap: 32px;
+  flex-wrap: wrap;
+  padding: 24px 0;
+  margin: 24px 0;
+  border-block: 1px solid var(--border);
+}
+.report-operational span {
+  display: block;
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 7px;
+}
+.report-operational strong {
+  font-size: 20px;
+  font-variant-numeric: tabular-nums;
+}
+.report-ranking,
+.report-next-steps {
+  margin-top: 28px;
+}
+.report-next-steps ul {
+  padding-left: 20px;
+  font-size: 13px;
+  line-height: 1.8;
+}
+.report-next-steps li + li {
+  margin-top: 9px;
+}
+.report-footer {
+  border-top: 1px solid var(--border);
+  padding-top: 20px;
+  margin-top: 24px;
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.7;
+}
+.pilot-steps {
+  padding: 0;
+  margin: 20px 0;
+  list-style: none;
+  counter-reset: pilot;
+}
+.pilot-steps li {
+  counter-increment: pilot;
+  display: grid;
+  grid-template-columns: 24px 1fr;
+  gap: 8px 12px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+}
+.pilot-steps li::before {
+  content: counter(pilot);
+  grid-row: span 2;
+  color: var(--primary);
+  font-weight: 600;
+}
+.pilot-steps strong {
+  font-size: 14px;
+}
+.pilot-steps span {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.7;
+}
+.pilot-info > h3 {
+  margin-top: 28px;
+}
+@media (max-width: 760px) {
+  .purchase-planner table {
+    min-width: 0;
+    width: 100%;
+  }
+  .purchase-planner thead {
+    display: none;
+  }
+  .purchase-planner tbody {
+    display: block;
+  }
+  .purchase-planner tbody tr {
+    display: grid;
+    grid-template-columns: 26px minmax(0, 1fr) minmax(0, 1fr);
+    gap: 14px 12px;
+    padding: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  .purchase-planner tbody th,
+  .purchase-planner tbody td {
+    padding: 0;
+    border: 0;
+    text-align: left;
+    white-space: normal;
+  }
+  .purchase-planner tbody th {
+    grid-column: 2 / 4;
+    grid-row: 1;
+    font-size: 14px;
+  }
+  .purchase-planner tbody td:first-child {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .purchase-planner tbody td:nth-child(3),
+  .purchase-planner tbody td:nth-child(5) {
+    grid-column: 2;
+  }
+  .purchase-planner tbody td:nth-child(4),
+  .purchase-planner tbody td:nth-child(6) {
+    grid-column: 3;
+  }
+  .purchase-planner [data-label]::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 7px;
+  }
+  .purchase-planner .cell-detail {
+    font-size: 12px;
+    line-height: 1.5;
+  }
+  .purchase-planner .purchase-quantity {
+    min-height: 44px;
+    width: 100%;
+    max-width: 100px;
+  }
+  .purchase-planner input[type="checkbox"] {
+    width: 22px;
+    height: 22px;
+  }
+  .owner-priorities li {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .owner-priorities li > div {
+    flex-basis: calc(100% - 40px);
+  }
+  .owner-priorities .text-button {
+    margin-left: 31px;
+    min-height: 44px;
+  }
+  .purchase-heading,
+  .purchase-toolbar,
+  .purchase-total {
+    padding: 20px;
+    gap: 16px;
+  }
+  .purchase-toolbar,
+  .purchase-total,
+  .report-heading {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .purchase-toolbar .field {
+    width: 100%;
+  }
+  .purchase-total > button {
+    justify-content: center;
+  }
+  .owner-report {
+    padding: 20px;
+  }
+  .report-financial dt {
+    max-width: 60%;
+  }
+  .report-financial dd {
+    font-size: 14px;
+  }
+  .report-operational {
+    gap: 20px;
+  }
+}
+@media print {
+  @page {
+    size: A4;
+    margin: 14mm;
+  }
+  html,
+  body {
+    background: var(--surface);
+  }
+  .sidebar,
+  .topbar,
+  .skip-link,
+  .page-footer,
+  .page-content > :not(.owner-report) {
+    display: none !important;
+  }
+  .main-shell {
+    margin-left: 0 !important;
+  }
+  .page-content {
+    padding: 0 !important;
+    max-width: none;
+  }
+  .owner-report {
+    display: block !important;
+    padding: 0;
+    margin: 0;
+    border: 0;
+  }
+  .report-print {
+    display: none !important;
+  }
+  .owner-report .table-scroll {
+    overflow: visible;
+  }
+  .owner-report table {
+    min-width: 0;
+    width: 100%;
+  }
+  .owner-report th,
+  .owner-report td {
+    padding: 9px 8px;
+    font-size: 11px;
+  }
+  .report-heading h2 {
+    font-size: 24px;
+  }
+  .report-financial,
+  .report-operational,
+  .report-comparison,
+  .report-next-steps,
+  .owner-report tr {
+    break-inside: avoid;
+  }
+  .report-ranking,
+  .report-next-steps {
+    margin-top: 20px;
+  }
+}

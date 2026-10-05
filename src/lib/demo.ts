@@ -296,11 +296,11 @@ export function validateRecord(record: DailyRecord): string | null {
   )
     return "O disponível deve corresponder ao estoque inicial mais as entradas.";
   if (record.sold + record.discarded > record.produced)
-    return "Vendas e descartes não podem superar a produção. Corrija as quantidades.";
+    return "Vendas e descartes não podem superar a quantidade disponível. Corrija as quantidades.";
   if (record.stockout && !/^([01]\d|2[0-3]):[0-5]\d$/.test(record.stockout))
     return "Informe um horário válido para a falta.";
   if (record.stockout && record.sold !== record.produced)
-    return "Para registrar falta, todas as unidades produzidas devem ter sido vendidas.";
+    return "Para registrar falta, todas as unidades disponíveis devem ter sido vendidas.";
   if (
     record.leftoverDestination &&
     !Object.hasOwn(leftoverDestinations, record.leftoverDestination)
@@ -372,7 +372,11 @@ export function summarize(records: DailyRecord[]) {
 export function productSummary(records: DailyRecord[], productId: string) {
   return summarize(records.filter((r) => r.productId === productId));
 }
-export function recommendations(records: DailyRecord[]) {
+export function recommendations(
+  records: DailyRecord[],
+  inventoryRecords = records,
+  endDate = DEMO_END,
+) {
   const tuesdays = records.filter(
     (r) =>
       r.productId === "coxinha" &&
@@ -416,7 +420,11 @@ export function recommendations(records: DailyRecord[]) {
           },
         ]
       : []),
-    ...inventorySummary(records)
+    ...inventorySummary(
+      inventoryRecords,
+      endDate,
+      new Set(records.map((row) => row.date)).size || 7,
+    )
       .filter((item) => item.stock !== null && item.status !== "Em equilíbrio")
       .map((item) => ({
         id: `inventory-${item.product.id}`,

@@ -16,6 +16,8 @@ import {
   MapPin,
   MessageCircle,
   Package,
+  ShoppingBasket,
+  FileText,
   Plus,
   Search,
   Settings2,
@@ -47,8 +49,15 @@ import {
 import { useDemoStore } from "@/lib/use-demo-store";
 import { AnalyticsCharts } from "./analytics-charts";
 import { BakeryChat } from "./bakery-chat";
+import { OwnerBriefing } from "./owner-briefing";
+import { PurchasePlanner } from "./purchase-planner";
+import { OwnerReport } from "./owner-report";
+import { ownerSummary } from "@/lib/operations";
+import { downloadFile } from "@/lib/download";
 
 type View =
+  | "purchases"
+  | "report"
   | "inventory"
   | "overview"
   | "production"
@@ -60,6 +69,8 @@ const navigation: { id: View; title: string; icon: LucideIcon }[] = [
   { id: "overview", title: "Visão geral", icon: LayoutDashboard },
   { id: "production", title: "Produção e vendas", icon: ClipboardList },
   { id: "inventory", title: "Estoque e reposição", icon: Package },
+  { id: "purchases", title: "Lista de compras", icon: ShoppingBasket },
+  { id: "report", title: "Resumo do dono", icon: FileText },
   { id: "products", title: "Produtos", icon: Package },
   { id: "insights", title: "Sugestões eia", icon: Sparkles },
   { id: "chat", title: "Conversar com a eia", icon: MessageCircle },
@@ -73,6 +84,7 @@ export function Dashboard() {
   const [query, setQuery] = useState("");
   const [message, setMessage] = useState("");
   const headingRef = useRef<HTMLHeadingElement>(null);
+  const navigationRef = useRef<HTMLElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -92,6 +104,26 @@ export function Dashboard() {
     return () => window.removeEventListener("popstate", restore);
   }, []);
 
+  useEffect(() => {
+    const navigation = navigationRef.current;
+    const selected = navigation?.querySelector<HTMLElement>(
+      '[aria-current="page"]',
+    );
+    if (
+      navigation &&
+      selected &&
+      window.matchMedia("(max-width: 760px)").matches
+    ) {
+      navigation.scrollTo({
+        left:
+          selected.offsetLeft -
+          navigation.offsetLeft -
+          (navigation.clientWidth - selected.clientWidth) / 2,
+        behavior: "instant",
+      });
+    }
+  }, [view]);
+
   function updateUrl(next: { view?: View; days?: number; query?: string }) {
     const params = new URLSearchParams({
       view: next.view ?? view,
@@ -105,6 +137,7 @@ export function Dashboard() {
     setView(next);
     setMessage("");
     updateUrl({ view: next });
+    window.scrollTo({ top: 0, behavior: "instant" });
     requestAnimationFrame(() => {
       if (focusForm) {
         formRef.current?.scrollIntoView({
@@ -117,26 +150,24 @@ export function Dashboard() {
   }
   const records = periodRecords(store.state.records, days);
   const totals = summarize(records);
-  const previous = summarize(periodRecords(store.state.records, days, days));
-  const comparisonAvailable = days <= 14;
-  const revenueChange = previous.revenue
-    ? ((totals.revenue - previous.revenue) / previous.revenue) * 100
-    : 0;
-  const suggestions = recommendations(records);
+  const owner = ownerSummary(store.state.records, days);
+  const comparisonAvailable = owner.revenueChange !== null;
+  const revenueChange = owner.revenueChange ?? 0;
+  const suggestions = recommendations(records, store.state.records);
   const pending = suggestions.filter(
     (item) => !store.state.decisions[item.id],
   ).length;
   const title = navigation.find((item) => item.id === view)!.title;
+  useEffect(() => {
+    document.title = `${title} · Superdeli`;
+  }, [title]);
 
   function exportRecords() {
-    const url = URL.createObjectURL(
-      new Blob([toCsv(records)], { type: "text/csv;charset=utf-8" }),
+    downloadFile(
+      toCsv(records),
+      `superdeli-demo-${days}-days.csv`,
+      "text/csv;charset=utf-8",
     );
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `superdeli-demo-${days}-days.csv`;
-    link.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
     setMessage(
       `Relatório de ${days} dias exportado. Os valores são sintéticos.`,
     );
@@ -191,7 +222,7 @@ export function Dashboard() {
           </div>
         </div>
         <span className="nav-label">PADARIA E MINIMERCADO</span>
-        <nav aria-label="Menu principal">
+        <nav ref={navigationRef} aria-label="Menu principal">
           {navigation.map(({ id, title, icon: Icon }) => (
             <button
               key={id}
@@ -267,9 +298,13 @@ export function Dashboard() {
                         ? "Compare o retorno da produção própria e dos itens de revenda."
                         : view === "insights"
                           ? "Os dados apontam caminhos. A decisão continua com você."
-                          : view === "chat"
-                            ? "Pergunte, entenda os números e planeje seu próximo passo."
-                            : "Uma base para começar pequeno e aprender com a rotina."}
+                          : view === "purchases"
+                            ? "Transforme a reposição em uma lista para revisar com o fornecedor."
+                            : view === "report"
+                              ? "Os resultados e as prioridades, prontos para conversar e guardar."
+                              : view === "chat"
+                                ? "Pergunte, entenda os números e planeje seu próximo passo."
+                                : "Uma base para começar pequeno e aprender com a rotina."}
               </p>
             </div>
             <div className="heading-actions">
@@ -335,7 +370,7 @@ export function Dashboard() {
                   footer={
                     comparisonAvailable
                       ? `${Math.abs(revenueChange).toFixed(1).replace(".", ",")}% ${revenueChange >= 0 ? "acima" : "abaixo"} do período anterior`
-                      : "30 dias de vendas simuladas"
+                      : "Sem comparação completa disponível"
                   }
                   positive={revenueChange >= 0}
                   showChange={comparisonAvailable}
@@ -361,6 +396,11 @@ export function Dashboard() {
                   warning={totals.stockouts > 0}
                 />
               </section>
+              <OwnerBriefing
+                records={store.state.records}
+                days={days}
+                onNavigate={navigate}
+              />
               <div className="analysis-grid">
                 <RevenueChart records={records} />
                 <section className="panel insights-preview">
@@ -449,6 +489,18 @@ export function Dashboard() {
             </>
           )}
 
+          {view === "purchases" && (
+            <PurchasePlanner
+              key={days}
+              records={store.state.records}
+              days={days}
+              ready={store.ready && !store.error}
+              onNotice={setMessage}
+            />
+          )}
+          {view === "report" && (
+            <OwnerReport records={store.state.records} days={days} />
+          )}
           {view === "inventory" && (
             <InventoryPanel records={store.state.records} days={days} />
           )}
@@ -756,8 +808,9 @@ export function Dashboard() {
               <h2>Superdeli + eia</h2>
               <p>
                 O primeiro passo é entender a rotina. Esta demonstração
-                acompanha cinco produtos e 30 dias de produção para testar como
-                os dados podem ajudar a padaria e o minimercado.
+                acompanha {products.length} produtos e 30 dias de produção,
+                vendas e estoque para testar como os dados podem ajudar a
+                padaria e o minimercado.
               </p>
               <dl>
                 <div>
@@ -788,11 +841,50 @@ export function Dashboard() {
                   <dd>Regras demonstrativas e chat com IA via Groq</dd>
                 </div>
               </dl>
-              <h3>Para começar na padaria</h3>
+              <h3>Um piloto que cabe na rotina</h3>
+              <ol className="pilot-steps">
+                <li>
+                  <strong>Escolher o foco</strong>
+                  <span>
+                    Comece pelos produtos que mais sobram ou acabam cedo.
+                    Confirme custos e unidades com a equipe.
+                  </span>
+                </li>
+                <li>
+                  <strong>Registrar por duas semanas</strong>
+                  <span>
+                    Anote produção, entradas, vendas, descartes e faltas.
+                    Acompanhe também a facilidade do registro.
+                  </span>
+                </li>
+                <li>
+                  <strong>Testar um ajuste pequeno</strong>
+                  <span>
+                    O dono aprova. Confira encomendas, compras em andamento e
+                    validade antes de agir.
+                  </span>
+                </li>
+                <li>
+                  <strong>Mostrar o resultado</strong>
+                  <span>
+                    Compare descarte ao custo e faltas em períodos equivalentes.
+                    Gere o resumo para decidir o próximo passo.
+                  </span>
+                </li>
+              </ol>
+              <button
+                className="button secondary"
+                onClick={() => navigate("report")}
+              >
+                Ver resumo do dono <ArrowRight size={16} />
+              </button>
+              <h3>Para usar dados reais</h3>
               <p>
                 Confirme os produtos, custos, responsáveis pelo registro e
-                relatórios disponíveis no caixa. Depois, acompanhe duas semanas
-                e teste um pequeno ajuste aprovado pelo dono.
+                relatórios disponíveis no caixa. Esta demonstração ainda usa
+                salvamento local: acesso da equipe, banco compartilhado,
+                integração com o caixa e acompanhamento por lote/validade
+                precisam ser configurados para a operação real.
               </p>
               <a
                 className="text-button"

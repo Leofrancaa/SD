@@ -6,14 +6,17 @@ PRODUCT.md records the user's pilot brief. Production changes remain the owner's
 
 ## Canonical UI Map
 
-| Capability     | Canonical owner                                           | Source of truth | Allowed variants                    | Verification             |
-| -------------- | --------------------------------------------------------- | --------------- | ----------------------------------- | ------------------------ |
-| Select/Listbox | Native select in dashboard.tsx                            | DESIGN.md       | OS-owned popup                      | Browser keyboard         |
-| Date           | Native date field in dashboard.tsx                        | PRODUCT.md      | OS-owned date popup                 | Browser recording        |
-| Form           | RecordForm in dashboard.tsx and validateRecord in demo.ts | PRODUCT.md      | Daily batch record                  | Domain and browser tests |
-| Scrollbar      | globals.css                                               | DESIGN.md       | Forced-colors system fallback       | Browser computed styles  |
-| Toast          | Shared role=status banner in Dashboard                    | DESIGN.md       | Save/export/approval                | Browser status checks    |
-| CRUD           | useDemoStore and RecordForm                               | PRODUCT.md      | Create or replace same date/product | Domain and browser tests |
+| Capability      | Canonical owner                                           | Source of truth | Allowed variants                       | Verification                      |
+| --------------- | --------------------------------------------------------- | --------------- | -------------------------------------- | --------------------------------- |
+| Select/Listbox  | Native select in dashboard.tsx                            | DESIGN.md       | OS-owned popup                         | Browser keyboard                  |
+| Date            | Native date field in dashboard.tsx                        | PRODUCT.md      | OS-owned date popup                    | Browser recording                 |
+| Form            | RecordForm in dashboard.tsx and validateRecord in demo.ts | PRODUCT.md      | Daily batch record                     | Domain and browser tests          |
+| Scrollbar       | globals.css                                               | DESIGN.md       | Forced-colors system fallback          | Browser computed styles           |
+| Toast           | Shared role=status banner in Dashboard                    | DESIGN.md       | Save/export/approval                   | Browser status checks             |
+| Table Selection | PurchasePlanner native checkbox selection                 | UX-CONTRACT.md  | Selected purchase draft rows           | Owner browser tests               |
+| Print           | OwnerReport and globals.css print rules                   | UX-CONTRACT.md  | Browser print / save PDF               | Print media and PDF browser tests |
+| Download        | downloadFile in download.ts                               | UX-CONTRACT.md  | Raw records / reviewed purchase drafts | Download browser tests            |
+| CRUD            | useDemoStore and RecordForm                               | PRODUCT.md      | Create or replace same date/product    | Domain and browser tests          |
 
 ## Flow ledger
 
@@ -34,3 +37,11 @@ Same-origin checks, schema/size limits, bounded steps/output, request timeout an
 ## Minimarket inventory
 
 The synthetic catalog includes five bakery products and nine resale products. Resale records explicitly store opening stock and receipts; available units equal their sum. Closing stock deducts sales and recorded discards and carries forward in seeded history. Manual records are independent counts, without rewriting later counts. Stock value uses the latest snapshot per product, never the sum of daily balances. Coverage uses recorded daily sales for the selected period. Expiry dates and cold chain temperatures are unavailable. Existing five-product browser data receives only missing resale product histories, preserving edited records and decisions.
+
+## Owner workflows
+
+OwnerBriefing shows rule-derived priorities from selected-period losses and stockouts and full-history dated inventory. It routes directly to the canonical inventory, purchase, insight and recording screens. Coverage shows recorded product/date keys against the 14-product catalog. Period comparisons require complete matched product/date coverage in both periods; no monthly baseline is invented.
+
+PurchasePlanner owns table selection for purchase drafts, using native checkboxes and labelled integer quantity fields. The native horizon select accepts OS-owned popup behavior. Default quantities use average sales per recorded date times the 3/7/14-day horizon plus minimum stock minus the latest counted inventory. Missing or stale counts, no sales and idle goods have no automatic purchase quantity. Selected quantities must be integers from 1 to 100000. Drafts live in the current screen session; horizon/period changes reset them and the UI explicitly asks users to export for retention. Exports include simulation, draft status, reviewed quantities and illustrative acquisition costs. No order is placed and no stock record changes. Shared downloadFile owns browser downloads; existing raw-record exports use the same utility and shared status banner.
+
+OwnerReport owns the printable summary. The browser print workflow prints only the report, preserving the simulation disclosure, period, costs, estimated return definition, stock-at-cost, completeness and priorities. Table overflow is removed for A4 output. Fixed costs are unavailable, so net profit and realized savings are never claimed. Groq getPurchasePlan uses the same purchase calculations read-only, but cannot see manually edited browser drafts. Document title follows the current section in pt-BR.

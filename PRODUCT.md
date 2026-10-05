@@ -12,11 +12,11 @@ Next.js App Router, TypeScript, Tailwind CSS, Vercel. GitHub: Leofrancaa/SD.
 
 ## Users
 
-The owner and staff of Superdeli, a bakery in Conceição do Jacuípe, Bahia, as provided by the user. The first pilot monitors five countable products.
+The owner and staff of Superdeli, a bakery and minimarket in Conceição do Jacuípe, Bahia, as provided by the user. The demonstration covers five bakery products and nine resale products, including grocery, frozen food and deli packs confirmed by the user.
 
 ## Product Purpose
 
-Record production, sales, leftovers and stockouts. Explain sales patterns to help the owner reduce waste without increasing shortages. Calculate discarded losses at production cost. Every recommendation requires the owner's decision.
+Record production, sales, leftovers and stockouts. Explain sales patterns to help the owner reduce waste without increasing shortages. Calculate discarded losses at production cost. Every recommendation requires the owner's decision. Help the owner prioritize losses, shortages and idle stock, review a purchase draft, and print a concise operating report. Purchase quantities and prices are illustrative; exports do not place orders.
 
 ## Constraints
 

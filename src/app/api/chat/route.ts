@@ -1,6 +1,7 @@
 import { createGroq } from "@ai-sdk/groq";
 import { isStepCount, ToolLoopAgent, tool } from "ai";
 import { z } from "zod";
+import { purchasePlan } from "@/lib/operations";
 import {
   assistantInstructions,
   bakeryReport,
@@ -114,6 +115,39 @@ export async function POST(request: Request) {
       prepareCall: (settings) => ({ ...settings, onError: () => {} }),
       providerOptions: { groq: { reasoningEffort: "low" } },
       tools: {
+        getPurchasePlan: tool({
+          description:
+            "Calculate a read-only draft purchase plan from the current dashboard period and the latest inventory at 2026-10-05. Use for exact suggested purchase quantities or estimated acquisition budgets. Never place orders. Manually adjusted or selected browser purchase drafts are not available to this tool.",
+          inputSchema: z.object({
+            targetDays: z.union([z.literal(3), z.literal(7), z.literal(14)]),
+          }),
+          execute: async ({ targetDays }) => {
+            const plan = purchasePlan(records, payload.days, targetDays);
+            return {
+              synthetic: true,
+              asOf: "2026-10-05",
+              selectedDays: payload.days,
+              targetDays,
+              formula:
+                "ceil(average recorded daily sales * targetDays + minimumStock - latestStock), floored at zero; no automatic recommendation without current inventory or sales",
+              estimatedTotalCost:
+                Math.round(
+                  plan.reduce((sum, item) => sum + item.estimatedCost, 0) * 100,
+                ) / 100,
+              products: plan.map((item) => ({
+                name: item.product.name,
+                stock: item.stock,
+                minimumStock: item.product.minimumStock,
+                quantity: item.quantity,
+                unitCost: item.product.cost,
+                estimatedCost: Math.round(item.estimatedCost * 100) / 100,
+                stale: item.stale,
+                recordedDays: item.recordedDays,
+                averageDailySales: item.averageDailySales,
+              })),
+            };
+          },
+        }),
         getBakeryReport: tool({
           description:
             "Return verified synthetic bakery and minimarket calculations for a date range or specific product. Date range must fall between 2026-09-06 and 2026-10-05. Use product IDs from the authoritative report. Use to answer explicit dates or periods outside the currently selected range.",

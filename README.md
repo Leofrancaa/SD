@@ -26,6 +26,10 @@ npx playwright test
 
 Import `Leofrancaa/SD`, select Next.js and use the repository root. The build command is `npm run build`; output detection is automatic. Set `GROQ_API_KEY` as a sensitive server environment variable for production and preview. Redeploy after changing it. Preview and production use the same synthetic dataset.
 
+## Owner workflows
+
+The overview prioritizes restocking, discarded losses, idle goods and shortages. The purchase draft estimates quantities for 3/7/14 days, supports manual review and exports selected items at illustrative purchase cost. Exporting never places an order. The owner report prints to A4 or PDF through the browser, with financial definitions and explicit simulation labels. Comparisons require complete matched periods; drafts are not persisted or sent to chat.
+
 ## Demo boundaries
 
 Daily records and reviewed suggestions persist in browser localStorage only. CSV exports provide a portable copy. Storage errors retain entered fields; corrupted saved data is protected from overwrite. Dashboard suggestions are rule-based; the chat uses Groq through a server endpoint. Approval records a planning decision and never changes production automatically. Discarded loss is calculated at production or purchase cost. Retail inventory uses the latest dated closing snapshot, with opening stock and received units recorded separately. Saved legacy bakery records are preserved when the resale catalog is added. Estimated return excludes fixed operating expenses. Revenue, prices, costs and product quantities are illustrative.
