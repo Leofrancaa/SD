@@ -504,6 +504,7 @@ a {
 }
 .balance-panel {
   margin-bottom: 18px;
+  padding: 23px 23px 20px;
 }
 .balance-caption {
   font-size: 12px;
@@ -586,6 +587,9 @@ a {
   color: var(--muted);
 }
 @media (max-width: 760px) {
+  .balance-panel {
+    padding: 18px 16px 16px;
+  }
   .balance-figures {
     grid-template-columns: 1fr;
     gap: 14px;
