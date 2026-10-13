@@ -72,8 +72,8 @@ const navigation: { id: View; title: string; icon: LucideIcon }[] = [
   { id: "purchases", title: "Lista de compras", icon: ShoppingBasket },
   { id: "report", title: "Resumo do dono", icon: FileText },
   { id: "products", title: "Produtos", icon: Package },
-  { id: "insights", title: "Sugestões eia", icon: Sparkles },
-  { id: "chat", title: "Conversar com a eia", icon: MessageCircle },
+  { id: "insights", title: "Sugestões Cifrai", icon: Sparkles },
+  { id: "chat", title: "Conversar com a Cifrai", icon: MessageCircle },
   { id: "settings", title: "Sobre o piloto", icon: Settings2 },
 ];
 
@@ -255,8 +255,8 @@ export function Dashboard() {
           </div>
           <div className="powered">
             <span className="eia-logo">
-              eia
-              <Sparkles size={18} />
+              Cifr<span className="eia-logo-accent">ai</span>
+              <Sparkles size={16} />
             </span>
             <span>
               Dados que ajudam
@@ -476,8 +476,8 @@ export function Dashboard() {
                 <div>
                   <strong>Uma boa fornada começa com bons registros.</strong>
                   <p>
-                    Registre produção, vendas e sobras. A eia ajuda a enxergar
-                    os padrões.
+                    Registre produção, vendas e sobras. A Cifrai ajuda a
+                    enxergar os padrões.
                   </p>
                 </div>
                 <button
@@ -809,7 +809,7 @@ export function Dashboard() {
               <span className="brand-symbol">
                 <Wheat size={30} />
               </span>
-              <h2>Superdeli + eia</h2>
+              <h2>Superdeli + Cifrai</h2>
               <p>
                 O primeiro passo é entender a rotina. Esta demonstração
                 acompanha {products.length} produtos e 30 dias de produção,
@@ -913,7 +913,7 @@ export function Dashboard() {
               Superdeli <span className="footer-dot">·</span> Feito para a
               rotina da padaria e do minimercado.
             </span>
-            <span>Demonstração eia · todos os valores são fictícios</span>
+            <span>Demonstração Cifrai · todos os valores são fictícios</span>
           </footer>
         </main>
       </div>

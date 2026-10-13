@@ -328,9 +328,12 @@ a {
   align-items: center;
   gap: 2px;
   font:
-    600 29px/1 "Manrope",
+    600 25px/1 "Manrope",
     sans-serif;
-  letter-spacing: -0.05em;
+  letter-spacing: -0.04em;
+}
+.eia-logo-accent {
+  color: var(--accent);
 }
 .eia-logo > svg {
   color: var(--accent);

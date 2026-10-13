@@ -117,7 +117,7 @@ export function BakeryChat({
     lastRequest.current = { question: question.trim(), history, userId };
     setBusy(true);
     setError("");
-    setAnnouncement("A eia está analisando os dados.");
+    setAnnouncement("A Cifrai está analisando os dados.");
     setInput("");
     setEntries((current) => [
       ...(previous
@@ -208,7 +208,7 @@ export function BakeryChat({
           entry.id === assistantId ? { ...entry, state: "complete" } : entry,
         ),
       );
-      setAnnouncement("Resposta da eia concluída.");
+      setAnnouncement("Resposta da Cifrai concluída.");
     } catch (issue) {
       const cancelled = controller.signal.aborted;
       const message = cancelled
@@ -249,13 +249,13 @@ export function BakeryChat({
 
   return (
     <div className="chat-layout">
-      <section className="panel chat-panel" aria-label="Conversa com a eia">
+      <section className="panel chat-panel" aria-label="Conversa com a Cifrai">
         <header className="chat-header">
           <div className="chat-assistant-mark">
             <Sparkles size={20} />
           </div>
           <div>
-            <h2>eia, sua assistente de gestão</h2>
+            <h2>Cifrai, sua assistente de gestão</h2>
             <p>Uma conversa com os dados da Superdeli.</p>
           </div>
           <span
@@ -307,7 +307,9 @@ export function BakeryChat({
                   key={entry.id}
                   className={`chat-entry ${entry.role}`}
                   aria-label={
-                    entry.role === "user" ? "Sua mensagem" : "Resposta da eia"
+                    entry.role === "user"
+                      ? "Sua mensagem"
+                      : "Resposta da Cifrai"
                   }
                 >
                   <div className="chat-entry-label">
@@ -316,7 +318,7 @@ export function BakeryChat({
                     ) : (
                       <Sparkles size={14} />
                     )}
-                    <span>{entry.role === "user" ? "Você" : "eia"}</span>
+                    <span>{entry.role === "user" ? "Você" : "Cifrai"}</span>
                     <span className="chat-entry-period">{entry.days} dias</span>
                   </div>
                   {entry.content ? (
@@ -343,7 +345,7 @@ export function BakeryChat({
                     <button
                       type="button"
                       className="chat-copy"
-                      aria-label="Copiar resposta da eia"
+                      aria-label="Copiar resposta da Cifrai"
                       onClick={async () => {
                         try {
                           await navigator.clipboard.writeText(entry.content);
@@ -402,7 +404,7 @@ export function BakeryChat({
         </div>
         <form className="chat-composer" noValidate onSubmit={submit}>
           <label className="sr-only" htmlFor="chat-question">
-            Sua pergunta para a eia
+            Sua pergunta para a Cifrai
           </label>
           <textarea
             id="chat-question"
@@ -501,8 +503,8 @@ export function BakeryChat({
         <div className="chat-data-note">
           <h3>Você decide o próximo passo.</h3>
           <p>
-            A eia explica e sugere. Ela não altera a produção, realiza compras
-            ou publica promoções.
+            A Cifrai explica e sugere. Ela não altera a produção, realiza
+            compras ou publica promoções.
           </p>
         </div>
         <p className="chat-privacy-note">

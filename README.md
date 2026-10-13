@@ -1,4 +1,4 @@
-# Superdeli · eia
+# Superdeli · Cifrai
 
 A responsive bakery and minimarket management pilot built with Next.js App Router, TypeScript and Tailwind CSS. The interface is Brazilian Portuguese. Thirty days of deterministic synthetic records cover 14 illustrative products: five bakery items and nine resale goods.
 

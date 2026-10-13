@@ -38,20 +38,20 @@ test("chat uses the selected data, renders Markdown and retains history during n
     page.locator('.chat-markdown [data-streamdown="strong"]').first(),
   ).toHaveText("Pão francês");
   await expect(
-    page.getByRole("button", { name: "Copiar resposta da eia" }),
+    page.getByRole("button", { name: "Copiar resposta da Cifrai" }),
   ).toBeVisible();
   await page.getByRole("button", { name: "Visão geral", exact: true }).click();
   await page
-    .getByRole("button", { name: "Conversar com a eia", exact: true })
+    .getByRole("button", { name: "Conversar com a Cifrai", exact: true })
     .click();
   await expect(page.locator(".chat-entry.user")).toHaveCount(1);
   await page.getByRole("button", { name: "30 dias", exact: true }).click();
   await page
-    .getByRole("textbox", { name: "Sua pergunta para a eia" })
+    .getByRole("textbox", { name: "Sua pergunta para a Cifrai" })
     .fill("E nesse período?");
   await page.keyboard.press("Enter");
   await expect(
-    page.getByRole("button", { name: "Copiar resposta da eia" }),
+    page.getByRole("button", { name: "Copiar resposta da Cifrai" }),
   ).toHaveCount(2);
   expect(requests).toHaveLength(2);
   expect((requests[1] as { days: number }).days).toBe(30);
@@ -91,7 +91,9 @@ test("chat preserves failed questions, retries without duplicates and handles pa
     });
   });
   await page.goto("/?view=chat");
-  const input = page.getByRole("textbox", { name: "Sua pergunta para a eia" });
+  const input = page.getByRole("textbox", {
+    name: "Sua pergunta para a Cifrai",
+  });
   await expect(page.getByText("Groq conectada", { exact: true })).toBeVisible();
   await input.fill("Quanto foi descartado?");
   await page.getByRole("button", { name: "Enviar", exact: true }).click();
@@ -130,7 +132,9 @@ test("mobile chat supports composition, multiline drafts and interruption", asyn
   });
   await page.goto("/?view=chat");
   await expect(page.getByText("Groq conectada", { exact: true })).toBeVisible();
-  const input = page.getByRole("textbox", { name: "Sua pergunta para a eia" });
+  const input = page.getByRole("textbox", {
+    name: "Sua pergunta para a Cifrai",
+  });
   await input.fill("Quero entender as sobras");
   await input.dispatchEvent("keydown", { key: "Enter", isComposing: true });
   expect(calls).toBe(0);
@@ -162,7 +166,7 @@ test("unconfigured chat explains recovery and prevents sending", async ({
   );
   await page.goto("/?view=chat");
   await page
-    .getByRole("textbox", { name: "Sua pergunta para a eia" })
+    .getByRole("textbox", { name: "Sua pergunta para a Cifrai" })
     .fill("Qual produto vende mais?");
   await expect(
     page.getByText("A IA não está disponível agora.", { exact: false }),

@@ -10,7 +10,7 @@ import "streamdown/styles.css";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Superdeli · eia",
+  title: "Superdeli · Cifrai",
   description:
     "Demonstração de gestão de produção, vendas e desperdício da Superdeli, com dados sintéticos.",
   robots: { index: false, follow: false },
