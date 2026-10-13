@@ -30,9 +30,19 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import {
-  addDays,
   dateLabel,
   DEMO_END,
+  DEMO_START,
+  availableMonths,
+  availableYears,
+  DEFAULT_PERIOD,
+  monthLabel,
+  parsePeriod,
+  periodBounds,
+  periodKey,
+  periodLabel,
+  periodLength,
+  type Period,
   leftoverDestinations,
   money,
   inventorySummary,
@@ -81,7 +91,7 @@ const navigation: { id: View; title: string; icon: LucideIcon }[] = [
 export function Dashboard() {
   const store = useDemoStore();
   const [view, setView] = useState<View>("overview");
-  const [days, setDays] = useState(7);
+  const [period, setPeriod] = useState<Period>(DEFAULT_PERIOD);
   const [query, setQuery] = useState("");
   const [message, setMessage] = useState("");
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -96,8 +106,7 @@ export function Dashboard() {
       setView(
         navigation.some((item) => item.id === section) ? section : "overview",
       );
-      const range = Number(params.get("days"));
-      setDays([7, 14, 30].includes(range) ? range : 7);
+      setPeriod(parsePeriod(params.get("periodo")));
       setQuery(params.get("q") ?? "");
     };
     restore();
@@ -125,10 +134,10 @@ export function Dashboard() {
     }
   }, [view]);
 
-  function updateUrl(next: { view?: View; days?: number; query?: string }) {
+  function updateUrl(next: { view?: View; period?: Period; query?: string }) {
     const params = new URLSearchParams({
       view: next.view ?? view,
-      days: String(next.days ?? days),
+      periodo: periodKey(next.period ?? period),
     });
     const search = next.query ?? query;
     if (search) params.set("q", search);
@@ -149,12 +158,14 @@ export function Dashboard() {
       } else headingRef.current?.focus();
     });
   }
-  const records = periodRecords(store.state.records, days);
+  const records = periodRecords(store.state.records, period);
+  const bounds = periodBounds(period);
+  const days = periodLength(period);
   const totals = summarize(records);
-  const owner = ownerSummary(store.state.records, days);
+  const owner = ownerSummary(store.state.records, period);
   const comparisonAvailable = owner.revenueChange !== null;
   const revenueChange = owner.revenueChange ?? 0;
-  const suggestions = recommendations(records, store.state.records);
+  const suggestions = recommendations(records, store.state.records, bounds.end);
   const pending = suggestions.filter(
     (item) => !store.state.decisions[item.id],
   ).length;
@@ -166,11 +177,11 @@ export function Dashboard() {
   function exportRecords() {
     downloadFile(
       toCsv(records),
-      `superdeli-demo-${days}-days.csv`,
+      `superdeli-demo-${periodKey(period)}.csv`,
       "text/csv;charset=utf-8",
     );
     setMessage(
-      `Relatório de ${days} dias exportado. Os valores são sintéticos.`,
+      `Relatório de ${periodLabel(period)} exportado. Os valores são sintéticos.`,
     );
   }
   function decide(id: string, decision: Decision) {
@@ -323,24 +334,70 @@ export function Dashboard() {
             </div>
           </div>
           <div className="period-row">
-            <div className="period-control" aria-label="Período de análise">
-              {[7, 14, 30].map((range) => (
-                <button
-                  key={range}
-                  className={days === range ? "selected" : ""}
-                  aria-pressed={days === range}
-                  onClick={() => {
-                    setDays(range);
-                    updateUrl({ days: range });
+            <div
+              className="period-picker"
+              role="group"
+              aria-label="Período de análise"
+            >
+              <label>
+                <span>Mês</span>
+                <select
+                  value={period.month ?? ""}
+                  onChange={(event) => {
+                    const next = {
+                      year: period.year,
+                      month: event.target.value
+                        ? Number(event.target.value)
+                        : null,
+                    };
+                    setPeriod(next);
+                    updateUrl({ period: next });
                   }}
                 >
-                  {range} dias
-                </button>
-              ))}
+                  <option value="">Ano inteiro</option>
+                  {availableMonths(period.year).map((month) => (
+                    <option key={month} value={month}>
+                      {monthLabel(month).replace(/^./, (c) => c.toUpperCase())}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                <span>Ano</span>
+                <select
+                  value={period.year}
+                  onChange={(event) => {
+                    const year = Number(event.target.value);
+                    const months = availableMonths(year);
+                    const next = {
+                      year,
+                      month:
+                        period.month === null
+                          ? null
+                          : months.includes(period.month)
+                            ? period.month
+                            : months.at(-1)!,
+                    };
+                    setPeriod(next);
+                    updateUrl({ period: next });
+                  }}
+                >
+                  {availableYears().map((year) => (
+                    <option key={year} value={year}>
+                      {year}
+                    </option>
+                  ))}
+                </select>
+              </label>
             </div>
             <span className="date-range">
-              {dateLabel(addDays(DEMO_END, -(days - 1)))} —{" "}
-              {dateLabel(DEMO_END, {
+              {dateLabel(bounds.start, {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+              })}{" "}
+              —{" "}
+              {dateLabel(bounds.end, {
                 day: "2-digit",
                 month: "short",
                 year: "numeric",
@@ -403,11 +460,14 @@ export function Dashboard() {
               </section>
               <OwnerBriefing
                 records={store.state.records}
-                days={days}
+                period={period}
                 onNavigate={navigate}
               />
               <div className="analysis-grid">
-                <RevenueChart records={records} />
+                <RevenueChart
+                  records={records}
+                  monthly={period.month === null}
+                />
                 <section className="panel insights-preview">
                   <div className="panel-heading">
                     <div className="inline-title">
@@ -463,13 +523,14 @@ export function Dashboard() {
               <AnalyticsCharts records={records} />
               <InventoryPanel
                 records={store.state.records}
-                days={days}
+                period={period}
                 onExpand={() => navigate("inventory")}
               />
               <ProductTable
                 records={records}
                 allRecords={store.state.records}
                 days={days}
+                endDate={bounds.end}
                 filteredProducts={products}
                 compact
                 onExpand={() => navigate("products")}
@@ -498,18 +559,16 @@ export function Dashboard() {
 
           {view === "purchases" && (
             <PurchasePlanner
-              key={days}
               records={store.state.records}
-              days={days}
               ready={store.ready && !store.error}
               onNotice={setMessage}
             />
           )}
           {view === "report" && (
-            <OwnerReport records={store.state.records} days={days} />
+            <OwnerReport records={store.state.records} period={period} />
           )}
           {view === "inventory" && (
-            <InventoryPanel records={store.state.records} days={days} />
+            <InventoryPanel records={store.state.records} period={period} />
           )}
           {view === "products" && (
             <>
@@ -547,6 +606,7 @@ export function Dashboard() {
                 records={records}
                 allRecords={store.state.records}
                 days={days}
+                endDate={bounds.end}
                 filteredProducts={filterProducts}
               />
               <p className="table-footnote">
@@ -817,7 +877,7 @@ export function Dashboard() {
               <h2>Superdeli + Cifrai</h2>
               <p>
                 O primeiro passo é entender a rotina. Esta demonstração
-                acompanha {products.length} produtos e 30 dias de produção,
+                acompanha {products.length} produtos e 13 meses de produção,
                 vendas e estoque para testar como os dados podem ajudar a
                 padaria e o minimercado.
               </p>
@@ -909,7 +969,7 @@ export function Dashboard() {
           <div hidden={view !== "chat"}>
             <BakeryChat
               records={store.state.records}
-              days={days as 7 | 14 | 30}
+              period={period}
               active={view === "chat"}
             />
           </div>
@@ -1056,18 +1116,33 @@ function Metric({
   );
 }
 
-function RevenueChart({ records }: { records: DailyRecord[] }) {
+function RevenueChart({
+  records,
+  monthly,
+}: {
+  records: DailyRecord[];
+  monthly: boolean;
+}) {
   const [metric, setMetric] = useState<"revenue" | "loss">("revenue");
-  const dates = [...new Set(records.map((r) => r.date))].sort();
-  const series = dates.map((date) => ({
-    date,
-    value: summarize(records.filter((r) => r.date === date))[metric],
+  // No ano inteiro, um ponto por mês; no mês, um ponto por dia.
+  const groups = new Map<string, DailyRecord[]>();
+  for (const row of records) {
+    const key = monthly ? row.date.slice(0, 7) : row.date;
+    groups.set(key, [...(groups.get(key) ?? []), row]);
+  }
+  const series = [...groups.keys()].sort().map((key) => ({
+    date: monthly ? `${key}-15` : key,
+    value: summarize(groups.get(key)!)[metric],
   }));
+  const label = (date: string) =>
+    monthly
+      ? dateLabel(date, { month: "short", year: "numeric" })
+      : dateLabel(date);
   const peak = Math.max(...series.map((day) => day.value), 1);
   const total = summarize(records)[metric];
-  const max =
-    Math.ceil(peak / (metric === "revenue" ? 500 : 25)) *
-    (metric === "revenue" ? 500 : 25);
+  const magnitude = 10 ** Math.floor(Math.log10(peak));
+  const step = magnitude * (peak / magnitude > 5 ? 1 : 0.5);
+  const max = Math.ceil(peak / step) * step;
   return (
     <section className="panel chart-panel">
       <div className="panel-heading">
@@ -1075,8 +1150,8 @@ function RevenueChart({ records }: { records: DailyRecord[] }) {
           <h2>O ritmo da Superdeli</h2>
           <p className="section-description">
             {metric === "revenue"
-              ? "Vendas por dia, em reais"
-              : "Valor descartado por dia, ao custo"}
+              ? `Vendas por ${monthly ? "mês" : "dia"}, em reais`
+              : `Valor descartado por ${monthly ? "mês" : "dia"}, ao custo`}
           </p>
         </div>
         <div className="chart-toggle">
@@ -1103,7 +1178,7 @@ function RevenueChart({ records }: { records: DailyRecord[] }) {
       <div
         className="chart"
         role="img"
-        aria-label={`${metric === "revenue" ? "Vendas" : "Perdas"} diárias: ${series.map((item) => `${dateLabel(item.date)}: ${money(item.value)}`).join("; ")}`}
+        aria-label={`${metric === "revenue" ? "Vendas" : "Perdas"} ${monthly ? "mensais" : "diárias"}: ${series.map((item) => `${label(item.date)}: ${money(item.value)}`).join("; ")}`}
       >
         <div className="chart-axis">
           {[max, max * 0.75, max * 0.5, max * 0.25, 0].map((value) => (
@@ -1132,14 +1207,14 @@ function RevenueChart({ records }: { records: DailyRecord[] }) {
                   style={{ height: `${Math.max(1, (day.value / max) * 100)}%` }}
                 >
                   <span className="chart-tooltip">
-                    {dateLabel(day.date)}
+                    {label(day.date)}
                     <strong>{money(day.value)}</strong>
                   </span>
                 </div>
                 <span className="bar-label">
-                  {series.length <= 7
-                    ? dateLabel(day.date, { weekday: "short" }).replace(".", "")
-                    : index % (series.length > 14 ? 5 : 2) === 0
+                  {monthly
+                    ? dateLabel(day.date, { month: "short" }).replace(".", "")
+                    : index % 5 === 0
                       ? dateLabel(day.date, { day: "2-digit" })
                       : ""}
                 </span>
@@ -1163,6 +1238,7 @@ function ProductTable({
   records,
   allRecords,
   days,
+  endDate,
   filteredProducts,
   compact = false,
   onExpand,
@@ -1170,12 +1246,13 @@ function ProductTable({
   records: DailyRecord[];
   allRecords: DailyRecord[];
   days: number;
+  endDate: string;
   filteredProducts: typeof products;
   compact?: boolean;
   onExpand?: () => void;
 }) {
   // Estoque e giro usam o histórico completo, como no painel de estoque.
-  const inventory = inventorySummary(allRecords, DEMO_END, days);
+  const inventory = inventorySummary(allRecords, endDate, days);
   return (
     <section className="panel products-panel">
       <div className="panel-heading">
@@ -1460,7 +1537,7 @@ function RecordForm({
             id="record-date"
             type="date"
             value={date}
-            min={addDays(DEMO_END, -29)}
+            min={DEMO_START}
             max={DEMO_END}
             aria-invalid={!!error}
             aria-describedby={error ? "record-error" : undefined}
@@ -1604,14 +1681,15 @@ function RecordForm({
 
 function InventoryPanel({
   records,
-  days,
+  period,
   onExpand,
 }: {
   records: DailyRecord[];
-  days: number;
+  period: Period;
   onExpand?: () => void;
 }) {
-  const inventory = inventorySummary(records, DEMO_END, days);
+  const { end } = periodBounds(period);
+  const inventory = inventorySummary(records, end, periodLength(period));
   const stockValue = inventory.reduce((sum, item) => sum + item.stockAtCost, 0);
   return (
     <section className="panel inventory-panel">
@@ -1620,7 +1698,12 @@ function InventoryPanel({
           <h2>Nas prateleiras e no freezer</h2>
           <p className="section-description">
             Mercadorias de revenda · última contagem até{" "}
-            {dateLabel(DEMO_END).replace(/\.$/, "")}.
+            {dateLabel(end, {
+              day: "2-digit",
+              month: "short",
+              year: "numeric",
+            })}
+            .
           </p>
         </div>
         {onExpand && (
@@ -1709,7 +1792,9 @@ function InventoryPanel({
                 <td>
                   {item.coverageDays === null
                     ? "Sem vendas no período"
-                    : `${number(item.coverageDays)} dias`}
+                    : item.coverageDays > 90
+                      ? "Mais de 90 dias"
+                      : `${number(item.coverageDays)} dias`}
                 </td>
                 <td>
                   <span

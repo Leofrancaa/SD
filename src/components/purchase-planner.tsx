@@ -3,24 +3,26 @@
 import { useState } from "react";
 import { Download, ShoppingBasket } from "lucide-react";
 import { DEMO_END, money, number, type DailyRecord } from "@/lib/demo";
-import { purchaseCsv, purchasePlan } from "@/lib/operations";
+import {
+  purchaseCsv,
+  purchasePlan,
+  PURCHASE_HISTORY_DAYS,
+} from "@/lib/operations";
 import { downloadFile } from "@/lib/download";
 
 export function PurchasePlanner({
   records,
-  days,
   ready,
   onNotice,
 }: {
   records: DailyRecord[];
-  days: number;
   ready: boolean;
   onNotice: (message: string) => void;
 }) {
   const [targetDays, setTargetDays] = useState(7);
   const [quantities, setQuantities] = useState<Record<string, string>>({});
   const [selection, setSelection] = useState<Record<string, boolean>>({});
-  const plan = purchasePlan(records, days, targetDays).map((item) => {
+  const plan = purchasePlan(records, targetDays).map((item) => {
     const raw = quantities[item.product.id] ?? String(item.quantity);
     const quantity = Number(raw);
     const valid =
@@ -88,8 +90,9 @@ export function PurchasePlanner({
           </select>
         </div>
         <p>
-          Base: média de vendas dos dias registrados no período de {days} dias,
-          mais o estoque mínimo.
+          Base: média de vendas dos últimos {PURCHASE_HISTORY_DAYS} dias
+          registrados e o estoque atual, mais o estoque mínimo. Não depende do
+          período selecionado no painel.
         </p>
       </div>
       <div className="table-scroll">

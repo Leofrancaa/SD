@@ -32,8 +32,11 @@ export type DemoState = {
   records: DailyRecord[];
   decisions: Record<string, Decision>;
 };
-export const DEMO_END = "2026-10-05";
-export const STORAGE_KEY = "superdeli-demo-v1";
+export const DEMO_START = "2025-09-01";
+export const DEMO_END = "2026-09-30";
+export const DEMO_DAYS =
+  Math.round((Date.parse(DEMO_END) - Date.parse(DEMO_START)) / 86400000) + 1;
+export const STORAGE_KEY = "superdeli-demo-v2";
 export const products: Product[] = [
   {
     id: "french-bread",
@@ -200,55 +203,101 @@ export function addDays(date: string, days: number) {
   value.setUTCDate(value.getUTCDate() + days);
   return value.toISOString().slice(0, 10);
 }
+// Ruído determinístico por data/produto: o mesmo histórico em toda execução.
+function noise(date: string, salt: number) {
+  let hash = 2166136261 ^ salt;
+  for (const char of date)
+    hash = Math.imul(hash ^ char.charCodeAt(0), 16777619);
+  hash ^= hash >>> 13;
+  hash = Math.imul(hash, 0x5bd1e995);
+  hash ^= hash >>> 15;
+  return (hash >>> 0) / 4294967296;
+}
+// Jan a dez: férias fracas, São João e fim de ano fortes.
+const monthFactor = [
+  0.9, 0.94, 0.97, 0.99, 1, 1.08, 1.03, 1, 1, 1.02, 1.04, 1.16,
+];
+const specialDays: Record<string, number> = {
+  "2025-12-24": 1.6,
+  "2025-12-25": 0.55,
+  "2025-12-31": 1.5,
+  "2026-01-01": 0.5,
+  "2026-02-14": 0.88,
+  "2026-02-15": 0.85,
+  "2026-02-16": 0.82,
+  "2026-02-17": 0.82,
+  "2026-04-03": 1.2,
+  "2026-06-23": 1.35,
+  "2026-06-24": 1.3,
+};
+const retailPlan: Record<
+  string,
+  { demand: number; target: number; summer?: number; deliveries: number[] }
+> = {
+  "ground-coffee": { demand: 3, target: 40, deliveries: [1] },
+  milk: { demand: 5, target: 34, deliveries: [1, 4] },
+  nescau: { demand: 2.4, target: 30, deliveries: [1] },
+  "pre-baked": { demand: 3, target: 36, deliveries: [1] },
+  ice: { demand: 3.5, target: 46, summer: 2, deliveries: [1, 4] },
+  "frozen-strawberry": { demand: 1.5, target: 24, deliveries: [1] },
+  "frozen-pizza": { demand: 2.6, target: 34, deliveries: [1] },
+  cheese: { demand: 3, target: 32, deliveries: [1, 4] },
+  ham: { demand: 2.6, target: 30, deliveries: [1, 4] },
+};
 export function generateRecords(): DailyRecord[] {
   const base = [520, 140, 100, 48, 72];
-  // Parâmetros por item para o estoque sintético não convergir para o mesmo saldo.
-  const retail: Record<
-    string,
-    { opening: number; receipt: number; every: number; demand: number }
-  > = {
-    "ground-coffee": { opening: 34, receipt: 24, every: 7, demand: 3 },
-    milk: { opening: 40, receipt: 24, every: 7, demand: 5 },
-    nescau: { opening: 22, receipt: 12, every: 7, demand: 2 },
-    "pre-baked": { opening: 28, receipt: 20, every: 7, demand: 3 },
-    ice: { opening: 18, receipt: 30, every: 5, demand: 5 },
-    "frozen-strawberry": { opening: 40, receipt: 0, every: 7, demand: 0 },
-    "frozen-pizza": { opening: 26, receipt: 18, every: 7, demand: 2 },
-    cheese: { opening: 20, receipt: 20, every: 7, demand: 3 },
-    ham: { opening: 24, receipt: 16, every: 7, demand: 2 },
-  };
   const inventory = new Map(
     products
       .filter((p) => p.operation === "retail")
-      .map((p) => [p.id, retail[p.id]?.opening ?? 40]),
+      .map((p) => [p.id, Math.round((retailPlan[p.id]?.target ?? 30) * 0.7)]),
   );
-  return Array.from({ length: 30 }, (_, day) => {
-    const date = addDays(DEMO_END, day - 29);
+  return Array.from({ length: DEMO_DAYS }, (_, day) => {
+    const date = addDays(DEMO_START, day);
     const weekday = new Date(`${date}T12:00:00Z`).getUTCDay();
+    const month = Number(date.slice(5, 7));
+    const summer = month === 12 || month <= 3;
+    const season = monthFactor[month - 1] * (specialDays[date] ?? 1);
+    const trend = 1 + (0.06 * day) / 365;
     return products.map((product, index) => {
       if (product.operation === "retail") {
-        const openingStock = inventory.get(product.id)!;
-        const params = retail[product.id] ?? {
-          opening: 40,
-          receipt: 24,
-          every: 7,
+        const plan = retailPlan[product.id] ?? {
           demand: 2,
+          target: 30,
+          deliveries: [1],
         };
-        const received = day % params.every === 0 ? params.receipt : 0;
+        const openingStock = inventory.get(product.id)!;
+        const strawberry = product.id === "frozen-strawberry";
+        let received = plan.deliveries.includes(weekday)
+          ? Math.max(0, plan.target - openingStock)
+          : 0;
+        // Morango só é reposto na temporada; a última compra, em março, sobra no freezer.
+        if (strawberry && !(summer || month === 11)) received = 0;
+        if (strawberry && date.slice(0, 7) === "2026-03" && received)
+          received = Math.max(0, 52 - openingStock);
+        // Entrega parcial de leite na última semana deixa o estoque abaixo do mínimo.
+        if (product.id === "milk" && date === "2026-09-28")
+          received = Math.max(0, 30 - openingStock);
         const produced = openingStock + received;
-        const demand =
-          product.id === "frozen-strawberry"
-            ? day < 5
-              ? 2
-              : 0
-            : product.id === "milk"
-              ? params.demand
-              : Math.max(0, params.demand - 1 + ((day + index) % 3));
+        const expected =
+          plan.demand *
+          (summer && plan.summer ? plan.summer : 1) *
+          (weekday === 0 || weekday === 6 ? 1.3 : 1) *
+          season *
+          trend;
+        const demand = strawberry
+          ? date > "2026-09-10"
+            ? 0
+            : summer
+              ? Math.round(1.5 * (0.4 + noise(date, index * 7 + 3) * 1.2))
+              : date === "2026-09-10" || noise(date, index * 7 + 3) < 0.05
+                ? 1
+                : 0
+          : Math.round(expected * (0.55 + noise(date, index * 7 + 3) * 0.9));
         const sold = Math.min(produced, demand);
         const discarded =
           (product.id === "cheese" || product.id === "ham") &&
-          day % 11 === 0 &&
-          produced > sold
+          produced > sold &&
+          noise(date, index * 13 + 5) < 0.05
             ? 1
             : 0;
         inventory.set(product.id, produced - sold - discarded);
@@ -264,17 +313,26 @@ export function generateRecords(): DailyRecord[] {
           leftoverDestination: "stock" as const,
         };
       }
-      const produced = Math.round(
-        base[index] * (weekday === 0 || weekday === 6 ? 1.22 : 1) +
-          ((day * 7 + index * 11) % 19),
+      const weekdayFactor =
+        weekday === 0 || weekday === 6 ? 1.22 : weekday === 1 ? 0.95 : 1;
+      let productFactor = 1;
+      if (index === 3 && month === 6)
+        productFactor =
+          date === "2026-06-23" || date === "2026-06-24" ? 2.5 : 1.9;
+      else if (index === 3 && month === 7) productFactor = 1.25;
+      const usual =
+        base[index] * weekdayFactor * season * trend * productFactor;
+      // A produção de coxinha não acompanha a terça mais fraca: é a sobra que a análise aponta.
+      const demandFactor = index === 2 && weekday === 2 ? 0.72 : 1;
+      const demand = Math.round(
+        usual * demandFactor * (0.9 + noise(date, index * 17 + 11) * 0.2),
       );
-      const ratio =
-        index === 2 && weekday === 2
-          ? 0.72
-          : index === 1 && day % 4 === 0
-            ? 1
-            : 0.88 + ((day + index * 2) % 8) / 100;
-      const sold = Math.min(produced, Math.round(produced * ratio));
+      const buffer =
+        index === 1
+          ? 1.02 + noise(date, index * 19 + 1) * 0.08
+          : 1.06 + noise(date, index * 19 + 1) * 0.08;
+      const produced = Math.round(usual * buffer);
+      const sold = Math.min(produced, demand);
       const discarded = Math.round(
         (produced - sold) * (index === 0 ? 0.55 : 0.8),
       );
@@ -284,7 +342,12 @@ export function generateRecords(): DailyRecord[] {
         produced,
         sold,
         discarded,
-        stockout: sold === produced ? "17:30" : "",
+        stockout:
+          sold === produced && demand > produced
+            ? index === 1
+              ? "16:30"
+              : "17:30"
+            : "",
         leftoverDestination:
           index === 0 ? ("reuse" as const) : ("donation" as const),
       };
@@ -301,8 +364,8 @@ export function validateRecord(record: DailyRecord): string | null {
       record.date
   )
     return "Informe uma data válida.";
-  if (record.date < addDays(DEMO_END, -29) || record.date > DEMO_END)
-    return "Escolha uma data entre 6 de setembro e 5 de outubro de 2026, período desta demonstração.";
+  if (record.date < DEMO_START || record.date > DEMO_END)
+    return "Escolha uma data entre 1º de setembro de 2025 e 30 de setembro de 2026, período desta demonstração.";
   if (
     ![record.produced, record.sold, record.discarded].every(
       (n) => Number.isSafeInteger(n) && n >= 0 && n <= 100000,
@@ -356,13 +419,121 @@ export function parseState(raw: string): DemoState {
     throw new Error("Invalid decision");
   return value;
 }
-export function periodRecords(
-  records: DailyRecord[],
-  days: number,
-  offset = 0,
-) {
-  const end = addDays(DEMO_END, -offset);
-  const start = addDays(end, -(days - 1));
+export type Period = { year: number; month: number | null };
+const monthNames = [
+  "janeiro",
+  "fevereiro",
+  "março",
+  "abril",
+  "maio",
+  "junho",
+  "julho",
+  "agosto",
+  "setembro",
+  "outubro",
+  "novembro",
+  "dezembro",
+];
+const shortMonths = monthNames.map((name) => name.slice(0, 3));
+export const DEFAULT_PERIOD: Period = {
+  year: Number(DEMO_END.slice(0, 4)),
+  month: Number(DEMO_END.slice(5, 7)),
+};
+const pad = (value: number) => String(value).padStart(2, "0");
+function lastDay(year: number, month: number) {
+  return new Date(Date.UTC(year, month, 0)).getUTCDate();
+}
+function rawBounds(period: Period) {
+  return period.month === null
+    ? { start: `${period.year}-01-01`, end: `${period.year}-12-31` }
+    : {
+        start: `${period.year}-${pad(period.month)}-01`,
+        end: `${period.year}-${pad(period.month)}-${pad(lastDay(period.year, period.month))}`,
+      };
+}
+/** Intervalo do período limitado à base de demonstração. */
+export function periodBounds(period: Period) {
+  const { start, end } = rawBounds(period);
+  return {
+    start: start < DEMO_START ? DEMO_START : start,
+    end: end > DEMO_END ? DEMO_END : end,
+  };
+}
+export function periodLength(period: Period) {
+  const { start, end } = periodBounds(period);
+  return Math.max(
+    0,
+    Math.round((Date.parse(end) - Date.parse(start)) / 86400000) + 1,
+  );
+}
+export function isPeriodAvailable(period: Period) {
+  const { start, end } = rawBounds(period);
+  return (
+    Number.isInteger(period.year) &&
+    (period.month === null ||
+      (Number.isInteger(period.month) &&
+        period.month >= 1 &&
+        period.month <= 12)) &&
+    end >= DEMO_START &&
+    start <= DEMO_END
+  );
+}
+/** O período inteiro está dentro da base (sem cortes no início ou no fim). */
+export function isPeriodComplete(period: Period) {
+  const raw = rawBounds(period);
+  const clamped = periodBounds(period);
+  return raw.start === clamped.start && raw.end === clamped.end;
+}
+export function previousPeriod(period: Period): Period | null {
+  const previous =
+    period.month === null
+      ? { year: period.year - 1, month: null }
+      : period.month === 1
+        ? { year: period.year - 1, month: 12 }
+        : { year: period.year, month: period.month - 1 };
+  return isPeriodAvailable(previous) ? previous : null;
+}
+export function periodLabel(period: Period) {
+  if (period.month !== null)
+    return `${monthNames[period.month - 1]} de ${period.year}`;
+  if (isPeriodComplete(period)) return String(period.year);
+  const { start, end } = periodBounds(period);
+  return `${period.year} (${shortMonths[Number(start.slice(5, 7)) - 1]}–${shortMonths[Number(end.slice(5, 7)) - 1]})`;
+}
+export function monthLabel(month: number, short = false) {
+  return (short ? shortMonths : monthNames)[month - 1];
+}
+export function availableYears() {
+  const years: number[] = [];
+  for (
+    let year = Number(DEMO_START.slice(0, 4));
+    year <= Number(DEMO_END.slice(0, 4));
+    year++
+  )
+    years.push(year);
+  return years;
+}
+export function availableMonths(year: number) {
+  return Array.from({ length: 12 }, (_, index) => index + 1).filter((month) =>
+    isPeriodAvailable({ year, month }),
+  );
+}
+export function periodKey(period: Period) {
+  return period.month === null
+    ? String(period.year)
+    : `${period.year}-${pad(period.month)}`;
+}
+export function parsePeriod(value: string | null | undefined): Period {
+  const match = /^(\d{4})(?:-(\d{2}))?$/.exec(value ?? "");
+  if (!match) return DEFAULT_PERIOD;
+  const period = {
+    year: Number(match[1]),
+    month: match[2] ? Number(match[2]) : null,
+  };
+  return isPeriodAvailable(period) ? period : DEFAULT_PERIOD;
+}
+export function periodRecords(records: DailyRecord[], period: Period) {
+  const { start, end } = periodBounds(period);
   return records.filter((row) => row.date >= start && row.date <= end);
 }
 export function summarize(records: DailyRecord[]) {

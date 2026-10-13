@@ -22,13 +22,14 @@ import {
 import { MessageResponse } from "./ai-elements/message";
 import {
   dateLabel,
-  DEMO_END,
-  addDays,
   money,
   number,
+  periodBounds,
+  periodLabel,
   periodRecords,
   summarize,
   type DailyRecord,
+  type Period,
 } from "@/lib/demo";
 
 type ChatEntry = {
@@ -36,7 +37,7 @@ type ChatEntry = {
   role: "user" | "assistant";
   content: string;
   state: "complete" | "streaming" | "failed" | "cancelled";
-  days: number;
+  period: string;
 };
 type HistoryMessage = { role: "user" | "assistant"; content: string };
 const questions = [
@@ -50,11 +51,11 @@ const questions = [
 
 export function BakeryChat({
   records,
-  days,
+  period,
   active,
 }: {
   records: DailyRecord[];
-  days: 7 | 14 | 30;
+  period: Period;
   active: boolean;
 }) {
   const [entries, setEntries] = useState<ChatEntry[]>([]);
@@ -72,7 +73,7 @@ export function BakeryChat({
     history: HistoryMessage[];
     userId: string;
   } | null>(null);
-  const totals = summarize(periodRecords(records, days));
+  const totals = summarize(periodRecords(records, period));
 
   useEffect(() => {
     if (!active) {
@@ -131,14 +132,14 @@ export function BakeryChat({
         role: "user",
         content: question.trim(),
         state: "complete",
-        days,
+        period: periodLabel(period),
       },
       {
         id: assistantId,
         role: "assistant",
         content: "",
         state: "streaming",
-        days,
+        period: periodLabel(period),
       },
     ]);
     let answer = "";
@@ -149,8 +150,13 @@ export function BakeryChat({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           messages: [...history, { role: "user", content: question.trim() }],
-          records,
-          days,
+          // O destino das sobras não entra nos cálculos do chat; omitido para reduzir o envio.
+          records: records.map((row) => {
+            const copy = { ...row };
+            delete copy.leftoverDestination;
+            return copy;
+          }),
+          period,
         }),
         signal: AbortSignal.any([
           controller.signal,
@@ -319,7 +325,7 @@ export function BakeryChat({
                       <Sparkles size={14} />
                     )}
                     <span>{entry.role === "user" ? "Você" : "Cifrai"}</span>
-                    <span className="chat-entry-period">{entry.days} dias</span>
+                    <span className="chat-entry-period">{entry.period}</span>
                   </div>
                   {entry.content ? (
                     entry.role === "assistant" ? (
@@ -473,8 +479,12 @@ export function BakeryChat({
           <div>
             <dt>Período selecionado</dt>
             <dd>
-              {dateLabel(addDays(DEMO_END, -(days - 1)))} —{" "}
-              {dateLabel(DEMO_END)}
+              {dateLabel(periodBounds(period).start)} —{" "}
+              {dateLabel(periodBounds(period).end, {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+              })}
             </dd>
           </div>
           <div>

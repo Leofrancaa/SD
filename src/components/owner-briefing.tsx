@@ -7,21 +7,28 @@ import {
   Package,
   TriangleAlert,
 } from "lucide-react";
-import { dateLabel, DEMO_END, money, type DailyRecord } from "@/lib/demo";
+import {
+  dateLabel,
+  money,
+  periodBounds,
+  periodLabel,
+  type DailyRecord,
+  type Period,
+} from "@/lib/demo";
 import { ownerSummary } from "@/lib/operations";
 
 export function OwnerBriefing({
   records,
-  days,
+  period,
   onNavigate,
 }: {
   records: DailyRecord[];
-  days: number;
+  period: Period;
   onNavigate: (
     view: "purchases" | "insights" | "inventory" | "production",
   ) => void;
 }) {
-  const summary = ownerSummary(records, days);
+  const summary = ownerSummary(records, period);
   const actions = [
     ...(summary.lowStock.length
       ? [
@@ -42,7 +49,7 @@ export function OwnerBriefing({
             id: "loss",
             icon: Leaf,
             title: `${summary.largestLoss.product.name}: maior perda por descarte`,
-            detail: `${money(summary.largestLoss.loss)} ao custo nos ${days} dias. Confira os registros antes de ajustar a produção.`,
+            detail: `${money(summary.largestLoss.loss)} ao custo em ${periodLabel(period)}. Confira os registros antes de ajustar a produção.`,
             action: "Revisar perdas",
             view: "insights" as const,
             badge: "Desperdício",
@@ -86,7 +93,12 @@ export function OwnerBriefing({
         </div>
         <span className="owner-date">
           <ClipboardCheck size={15} />
-          Base até {dateLabel(DEMO_END)}
+          Base até{" "}
+          {dateLabel(periodBounds(period).end, {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+          })}
         </span>
       </div>
       <ul className="owner-priorities">

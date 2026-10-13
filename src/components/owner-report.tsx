@@ -2,12 +2,13 @@
 
 import { Printer } from "lucide-react";
 import {
-  addDays,
   dateLabel,
-  DEMO_END,
   money,
   number,
+  periodBounds,
+  periodLabel,
   periodRecords,
+  type Period,
   type DailyRecord,
 } from "@/lib/demo";
 import { rankProducts } from "@/lib/analytics";
@@ -15,13 +16,13 @@ import { ownerSummary } from "@/lib/operations";
 
 export function OwnerReport({
   records,
-  days,
+  period,
 }: {
   records: DailyRecord[];
-  days: number;
+  period: Period;
 }) {
-  const report = ownerSummary(records, days);
-  const ranked = rankProducts(periodRecords(records, days), "return")
+  const report = ownerSummary(records, period);
+  const ranked = rankProducts(periodRecords(records, period), "return")
     .filter((item) => item.sold > 0)
     .slice(0, 5);
   return (
@@ -31,8 +32,9 @@ export function OwnerReport({
           <span className="small-label">SUPERDELI · PADARIA E MINIMERCADO</span>
           <h2 id="report-title">Resumo para o dono</h2>
           <p>
-            {dateLabel(addDays(DEMO_END, -(days - 1)))} a{" "}
-            {dateLabel(DEMO_END, {
+            {periodLabel(period).replace(/^./, (c) => c.toUpperCase())} ·{" "}
+            {dateLabel(periodBounds(period).start)} a{" "}
+            {dateLabel(periodBounds(period).end, {
               day: "2-digit",
               month: "long",
               year: "numeric",
@@ -95,8 +97,8 @@ export function OwnerReport({
         <h3>Comparação com o período anterior</h3>
         <p>
           {report.revenueChange === null
-            ? "Comparação indisponível: são necessários dois períodos completos com os mesmos produtos. A base tem 30 dias."
-            : `Vendas ${Math.abs(report.revenueChange).toFixed(1).replace(".", ",")}% ${report.revenueChange >= 0 ? "acima" : "abaixo"} do período anterior de ${days} dias.`}
+            ? "Comparação indisponível: é preciso que o período atual e o anterior estejam completos na base (setembro de 2025 a setembro de 2026)."
+            : `Vendas ${Math.abs(report.revenueChange).toFixed(1).replace(".", ",")}% ${report.revenueChange >= 0 ? "acima" : "abaixo"} do período anterior.`}
         </p>
         {report.lossChange !== null && (
           <p>
@@ -172,8 +174,8 @@ export function OwnerReport({
       <footer className="report-footer">
         Cobertura: {report.recordedDates} dias com registros ·{" "}
         {report.coveragePercent}% dos registros esperados. Estoque usa a última
-        contagem até {dateLabel(DEMO_END)}. Dados e decisões ficam neste
-        navegador; exporte uma cópia para guardar.
+        contagem até {dateLabel(periodBounds(period).end)}. Dados e decisões
+        ficam neste navegador; exporte uma cópia para guardar.
       </footer>
     </section>
   );

@@ -6,6 +6,13 @@ import {
   weekdayAverages,
 } from "../src/lib/analytics";
 import {
+  DEFAULT_PERIOD,
+  DEMO_DAYS,
+  isPeriodComplete,
+  parsePeriod,
+  periodLabel,
+  periodLength,
+  previousPeriod,
   generateRecords,
   extendCatalog,
   inventorySummary,
@@ -74,8 +81,10 @@ test("product ranking distinguishes volume from revenue and retains negative ret
 });
 test("synthetic history is deterministic and conserves every batch", () => {
   assert.deepEqual(records, generateRecords());
-  assert.equal(records.length, products.length * 30);
-  assert.equal(new Set(records.map((r) => r.date)).size, 30);
+  assert.equal(records.length, products.length * DEMO_DAYS);
+  assert.equal(new Set(records.map((r) => r.date)).size, DEMO_DAYS);
+  assert.equal(records[0].date, "2025-09-01");
+  assert.equal(records.at(-1)!.date, "2026-09-30");
   for (const row of records) assert.equal(validateRecord(row), null);
 });
 test("loss uses discarded units at cost, not leftovers at selling price", () => {
@@ -108,7 +117,8 @@ test("rejects impossible batches, malformed dates and incompatible stockouts", (
     { produced: 2.5 },
     { stockout: "17:30" },
     { date: "2026-09-31" },
-    { date: "2026-10-06" },
+    { date: "2026-10-01" },
+    { date: "2025-08-31" },
     { stockout: "25:00" },
   ])
     assert.ok(validateRecord({ ...row, ...override }));
@@ -124,9 +134,26 @@ test("rejects impossible batches, malformed dates and incompatible stockouts", (
   );
 });
 test("date filters preserve complete ranges and do not silently compare partial months", () => {
-  assert.equal(periodRecords(records, 7).length, products.length * 7);
-  assert.equal(periodRecords(records, 14, 14).length, products.length * 14);
-  assert.equal(periodRecords(records, 30).length, products.length * 30);
+  assert.equal(
+    periodRecords(records, { year: 2026, month: 2 }).length,
+    products.length * 28,
+  );
+  assert.equal(
+    periodRecords(records, { year: 2025, month: null }).length,
+    products.length * 122,
+  );
+  assert.equal(periodLength({ year: 2026, month: null }), 273);
+  assert.equal(isPeriodComplete({ year: 2026, month: null }), false);
+  assert.equal(periodLabel({ year: 2025, month: null }), "2025 (set–dez)");
+  assert.equal(periodLabel({ year: 2026, month: 6 }), "junho de 2026");
+  assert.deepEqual(previousPeriod({ year: 2026, month: 1 }), {
+    year: 2025,
+    month: 12,
+  });
+  assert.equal(previousPeriod({ year: 2025, month: 9 }), null);
+  assert.deepEqual(parsePeriod("2026-03"), { year: 2026, month: 3 });
+  assert.deepEqual(parsePeriod("2027-01"), DEFAULT_PERIOD);
+  assert.deepEqual(parsePeriod("lixo"), DEFAULT_PERIOD);
 });
 test("stored data rejects corrupt schema and duplicate product/date keys", () => {
   const state = { version: 1, records, decisions: {} };
@@ -186,13 +213,13 @@ test("retail stocks carry forward, use one closing snapshot and preserve legacy 
   const upgraded = extendCatalog(state);
   assert.deepEqual(upgraded.records[0], bakery[0]);
   assert.deepEqual(upgraded.decisions, state.decisions);
-  assert.equal(upgraded.records.length, products.length * 30);
+  assert.equal(upgraded.records.length, products.length * DEMO_DAYS);
   assert.equal(extendCatalog(upgraded), upgraded);
   const outcomes = productionOutcomes(records);
   assert.equal(outcomes.produced, summarize(bakery).produced);
   const strawberry = inventorySummary(records).find(
     (item) => item.product.id === "frozen-strawberry",
   )!;
-  assert.equal(strawberry.daysWithoutSale, 25);
+  assert.equal(strawberry.daysWithoutSale, 20);
   assert.equal(strawberry.status, "Sem giro recente");
 });

@@ -13,6 +13,8 @@ import {
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
+// 13 meses de registros sintéticos (~0,8 MB) cabem com folga; abaixo do limite de 4,5 MB da Vercel.
+const MAX_BODY_BYTES = 1_500_000;
 const clients = new Map<string, { count: number; resetAt: number }>();
 
 export function GET() {
@@ -51,7 +53,7 @@ export async function POST(request: Request) {
       { status: 415 },
     );
   const length = Number(request.headers.get("content-length") ?? 0);
-  if (length > 180000)
+  if (length > MAX_BODY_BYTES)
     return Response.json(
       { error: "A conversa está muito longa. Envie uma pergunta mais curta." },
       { status: 413 },
@@ -60,7 +62,7 @@ export async function POST(request: Request) {
   let records;
   try {
     const body = await request.text();
-    if (new TextEncoder().encode(body).length > 180000)
+    if (new TextEncoder().encode(body).length > MAX_BODY_BYTES)
       return Response.json(
         {
           error: "A conversa está muito longa. Envie uma pergunta mais curta.",
@@ -107,7 +109,7 @@ export async function POST(request: Request) {
   const createAgent = (modelId: string) =>
     new ToolLoopAgent({
       model: groq(modelId),
-      instructions: `${assistantInstructions}\nAUTHORITATIVE REPORT (server calculated):\n${JSON.stringify(selectedChatContext(records, payload.days))}`,
+      instructions: `${assistantInstructions}\nAUTHORITATIVE REPORT (server calculated):\n${JSON.stringify(selectedChatContext(records, payload.period))}`,
       stopWhen: isStepCount(3),
       maxOutputTokens: 1800,
       temperature: 0.2,
@@ -117,16 +119,16 @@ export async function POST(request: Request) {
       tools: {
         getPurchasePlan: tool({
           description:
-            "Calculate a read-only draft purchase plan from the current dashboard period and the latest inventory at 2026-10-05. Use for exact suggested purchase quantities or estimated acquisition budgets. Never place orders. Manually adjusted or selected browser purchase drafts are not available to this tool.",
+            "Calculate a read-only draft purchase plan from the last 28 days of sales and the latest inventory at 2026-09-30. Use for exact suggested purchase quantities or estimated acquisition budgets. Never place orders. Manually adjusted or selected browser purchase drafts are not available to this tool.",
           inputSchema: z.object({
             targetDays: z.union([z.literal(3), z.literal(7), z.literal(14)]),
           }),
           execute: async ({ targetDays }) => {
-            const plan = purchasePlan(records, payload.days, targetDays);
+            const plan = purchasePlan(records, targetDays);
             return {
               synthetic: true,
-              asOf: "2026-10-05",
-              selectedDays: payload.days,
+              asOf: "2026-09-30",
+              historyDays: 28,
               targetDays,
               formula:
                 "ceil(average recorded daily sales * targetDays + minimumStock - latestStock), floored at zero; no automatic recommendation without current inventory or sales",
@@ -150,7 +152,7 @@ export async function POST(request: Request) {
         }),
         getBakeryReport: tool({
           description:
-            "Return verified synthetic bakery and minimarket calculations for a date range or specific product. Date range must fall between 2026-09-06 and 2026-10-05. Use product IDs from the authoritative report. Use to answer explicit dates or periods outside the currently selected range.",
+            "Return verified synthetic bakery and minimarket calculations for a date range or specific product. Date range must fall between 2025-09-01 and 2026-09-30. Use product IDs from the authoritative report. Use to answer explicit dates or periods outside the currently selected range.",
           inputSchema: z.object({
             startDate: z.string(),
             endDate: z.string(),
