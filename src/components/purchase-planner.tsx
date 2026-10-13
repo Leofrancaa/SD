@@ -10,6 +10,7 @@ import {
 } from "@/lib/operations";
 import { downloadFile } from "@/lib/download";
 import { Select } from "./ui/select";
+import { SupplierMessages } from "./supplier-messages";
 
 export function PurchasePlanner({
   records,
@@ -218,6 +219,12 @@ export function PurchasePlanner({
           Nenhum item selecionado. Se não houver reposição sugerida, você pode
           preencher uma quantidade e incluí-la na lista.
         </p>
+      )}
+      {!invalid && (
+        <SupplierMessages
+          items={selected.filter((item) => item.valid && item.quantity > 0)}
+          onNotice={onNotice}
+        />
       )}
       <p id="purchase-method" className="purchase-note">
         Sugestão = vendas médias × dias planejados + mínimo − estoque contado,

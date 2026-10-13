@@ -149,3 +149,48 @@ export function purchaseCsv(
       .join("\r\n")
   );
 }
+
+export const STORE_SIGNATURE = "Superdeli, em Conceição do Jacuípe";
+
+/**
+ * Monta o texto de um pedido para o fornecedor. O envio é sempre feito pelo
+ * dono (WhatsApp, e-mail ou cópia); o sistema nunca envia nada sozinho.
+ */
+export function supplierMessage({
+  supplier,
+  items,
+  delivery,
+}: {
+  supplier: string;
+  items: { name: string; quantity: number; unit: string }[];
+  delivery?: string;
+}) {
+  const lines = items.map(
+    (item) => `• ${item.quantity} ${item.unit} — ${item.name}`,
+  );
+  const when = delivery?.trim();
+  return [
+    `Olá, ${supplier}! Tudo bem?`,
+    `Aqui é da ${STORE_SIGNATURE}. Gostaria de fazer o seguinte pedido:`,
+    "",
+    ...lines,
+    "",
+    ...(when ? [`Entrega desejada: ${when}.`] : []),
+    "Pode confirmar a disponibilidade, os valores e o prazo de entrega?",
+    "Obrigado!",
+  ].join("\n");
+}
+
+export function groupBySupplier<T extends { product: { supplier?: string } }>(
+  items: T[],
+) {
+  const groups = new Map<string, T[]>();
+  for (const item of items) {
+    const supplier = item.product.supplier ?? "Fornecedor não cadastrado";
+    groups.set(supplier, [...(groups.get(supplier) ?? []), item]);
+  }
+  return [...groups.entries()].map(([supplier, list]) => ({
+    supplier,
+    items: list,
+  }));
+}

@@ -3066,6 +3066,109 @@ tbody tr:hover {
 .purchase-error {
   margin: 0 24px 16px;
 }
+.supplier-messages {
+  border-top: 1px solid var(--border);
+  background: var(--background);
+  padding-top: 4px;
+}
+.supplier-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 24px;
+  padding: 20px 24px 16px;
+}
+.supplier-heading h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  font-size: 17px;
+}
+.supplier-heading h3 svg {
+  color: var(--primary);
+}
+.supplier-heading p {
+  margin-top: 6px;
+  max-width: 60ch;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+.supplier-delivery {
+  width: 260px;
+  flex-shrink: 0;
+  margin: 0;
+}
+.supplier-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 14px;
+  padding: 0 24px 16px;
+}
+.supplier-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+.supplier-card header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+.supplier-card header strong {
+  display: block;
+  font-size: 14px;
+}
+.supplier-card header span {
+  font-size: 11px;
+  color: var(--muted);
+}
+.supplier-card textarea {
+  width: 100%;
+  resize: vertical;
+  border: 1px solid #cbd0c5;
+  border-radius: 7px;
+  background: #fbfcf9;
+  padding: 10px 12px;
+  color: var(--ink);
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.supplier-card textarea:focus-visible {
+  outline: 3px solid var(--primary);
+  outline-offset: 2px;
+}
+.supplier-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.supplier-actions .button {
+  flex: 1 1 auto;
+  justify-content: center;
+  text-decoration: none;
+}
+@media (max-width: 760px) {
+  .supplier-heading {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 18px 16px 14px;
+  }
+  .supplier-delivery {
+    width: 100%;
+  }
+  .supplier-grid {
+    grid-template-columns: 1fr;
+    padding: 0 16px 14px;
+  }
+}
 .owner-report {
   padding: 32px;
 }

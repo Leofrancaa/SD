@@ -8,6 +8,8 @@ export type Product = {
   initials: string;
   operation?: "retail";
   minimumStock?: number;
+  /** Fornecedor fictício, usado para agrupar os pedidos de reposição. */
+  supplier?: string;
 };
 export type DailyRecord = {
   date: string;
@@ -92,6 +94,7 @@ export const products: Product[] = [
     unit: "emb.",
     initials: "CA",
     operation: "retail",
+    supplier: "Distribuidora Recôncavo",
     minimumStock: 12,
   },
   {
@@ -103,6 +106,7 @@ export const products: Product[] = [
     unit: "emb.",
     initials: "LE",
     operation: "retail",
+    supplier: "Laticínios Jacuípe",
     minimumStock: 18,
   },
   {
@@ -114,6 +118,7 @@ export const products: Product[] = [
     unit: "emb.",
     initials: "NE",
     operation: "retail",
+    supplier: "Distribuidora Recôncavo",
     minimumStock: 8,
   },
   {
@@ -125,6 +130,7 @@ export const products: Product[] = [
     unit: "emb.",
     initials: "PR",
     operation: "retail",
+    supplier: "Frio Bahia Congelados",
     minimumStock: 8,
   },
   {
@@ -136,6 +142,7 @@ export const products: Product[] = [
     unit: "emb.",
     initials: "GE",
     operation: "retail",
+    supplier: "Gelo Cristal",
     minimumStock: 10,
   },
   {
@@ -147,6 +154,7 @@ export const products: Product[] = [
     unit: "emb.",
     initials: "MO",
     operation: "retail",
+    supplier: "Frio Bahia Congelados",
     minimumStock: 6,
   },
   {
@@ -158,6 +166,7 @@ export const products: Product[] = [
     unit: "emb.",
     initials: "PI",
     operation: "retail",
+    supplier: "Frio Bahia Congelados",
     minimumStock: 8,
   },
   {
@@ -169,6 +178,7 @@ export const products: Product[] = [
     unit: "emb.",
     initials: "QU",
     operation: "retail",
+    supplier: "Laticínios Jacuípe",
     minimumStock: 12,
   },
   {
@@ -180,6 +190,7 @@ export const products: Product[] = [
     unit: "emb.",
     initials: "PR",
     operation: "retail",
+    supplier: "Laticínios Jacuípe",
     minimumStock: 12,
   },
 ];

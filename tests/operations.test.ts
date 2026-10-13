@@ -9,7 +9,13 @@ import {
   products,
   summarize,
 } from "../src/lib/demo";
-import { ownerSummary, purchaseCsv, purchasePlan } from "../src/lib/operations";
+import {
+  groupBySupplier,
+  ownerSummary,
+  purchaseCsv,
+  purchasePlan,
+  supplierMessage,
+} from "../src/lib/operations";
 
 const records = generateRecords();
 
@@ -124,4 +130,34 @@ test("purchase CSV exports reviewed quantities with the simulation and draft bou
   assert.ok(csv.includes("Dados simulados"));
   assert.ok(csv.includes("não é um pedido"));
   assert.ok(csv.includes('"14";"12";"emb.";"4.70";"56.40"'));
+});
+
+test("supplier messages group selected items and never include costs", () => {
+  const milk = products.find((product) => product.id === "milk")!;
+  const cheese = products.find((product) => product.id === "cheese")!;
+  const coffee = products.find((product) => product.id === "ground-coffee")!;
+  const groups = groupBySupplier([
+    { product: milk, quantity: 24 },
+    { product: coffee, quantity: 6 },
+    { product: cheese, quantity: 12 },
+  ]);
+  assert.equal(groups.length, 2);
+  const dairy = groups.find((group) => group.supplier === milk.supplier)!;
+  assert.equal(dairy.items.length, 2);
+  const text = supplierMessage({
+    supplier: dairy.supplier,
+    delivery: " quinta-feira, até as 7h ",
+    items: dairy.items.map((item) => ({
+      name: item.product.name,
+      quantity: item.quantity,
+      unit: item.product.unit,
+    })),
+  });
+  assert.ok(text.startsWith(`Olá, ${milk.supplier}!`));
+  assert.ok(text.includes("• 24 emb. — Leite · 1 L"));
+  assert.ok(text.includes("Entrega desejada: quinta-feira, até as 7h."));
+  assert.ok(!text.includes("R$"));
+  assert.ok(
+    !supplierMessage({ supplier: "X", items: [] }).includes("Entrega desejada"),
+  );
 });
