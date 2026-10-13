@@ -338,9 +338,11 @@ export function Dashboard() {
                             ? "Transforme a reposição em uma lista para revisar com o fornecedor."
                             : view === "report"
                               ? "Os resultados e as prioridades, prontos para conversar e guardar."
-                              : view === "chat"
-                                ? "Pergunte, entenda os números e planeje seu próximo passo."
-                                : "Uma base para começar pequeno e aprender com a rotina."}
+                              : view === "stores"
+                                ? "Onde cada loja ganha e perde dinheiro, lado a lado."
+                                : view === "chat"
+                                  ? "Pergunte, entenda os números e planeje seu próximo passo."
+                                  : "Uma base para começar pequeno e aprender com a rotina."}
               </p>
             </div>
             <div className="heading-actions">

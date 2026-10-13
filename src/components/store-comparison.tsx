@@ -24,7 +24,7 @@ type Metric = {
   label: string;
   value: (totals: Totals) => number;
   format: (value: number) => string;
-  better: "higher" | "lower";
+  better: "higher" | "lower" | "none";
   hint?: string;
 };
 
@@ -53,7 +53,8 @@ const metrics: Metric[] = [
     label: "Perda por descarte",
     value: (t) => t.loss,
     format: money,
-    better: "lower",
+    // Valor absoluto depende do tamanho da loja; o destaque fica na taxa abaixo.
+    better: "none",
   },
   {
     label: "Descarte sobre o faturamento",
@@ -155,7 +156,9 @@ export function StoreComparison({
                   metric.better === "higher"
                     ? Math.max(...values)
                     : Math.min(...values);
-                const tie = values.every((value) => value === values[0]);
+                const tie =
+                  metric.better === "none" ||
+                  values.every((value) => value === values[0]);
                 return (
                   <tr key={metric.label}>
                     <th scope="row">
