@@ -7,6 +7,7 @@ import {
   ArrowRight,
   ArrowUpRight,
   Check,
+  Scale,
   CheckCheck,
   ChevronRight,
   ClipboardList,
@@ -362,6 +363,10 @@ export function Dashboard() {
 
           {view === "overview" && (
             <>
+              <BalancePanel
+                totals={totals}
+                previous={comparisonAvailable ? owner.previous : null}
+              />
               <section className="metrics" aria-label="Resumo do período">
                 <Metric
                   title="Vendas no período"
@@ -918,6 +923,97 @@ export function Dashboard() {
         </main>
       </div>
     </div>
+  );
+}
+
+function BalancePanel({
+  totals,
+  previous,
+}: {
+  totals: ReturnType<typeof summarize>;
+  previous: ReturnType<typeof summarize> | null;
+}) {
+  const expenses = totals.cost + totals.loss;
+  const result = totals.revenue - expenses;
+  const margin = totals.revenue ? (result / totals.revenue) * 100 : 0;
+  const share = (value: number) =>
+    totals.revenue ? `${Math.max(0, (value / totals.revenue) * 100)}%` : "0%";
+  const previousResult = previous
+    ? previous.revenue - previous.cost - previous.loss
+    : null;
+  const change =
+    previousResult !== null && previousResult !== 0
+      ? ((result - previousResult) / Math.abs(previousResult)) * 100
+      : null;
+  const percent = (value: number) =>
+    `${Math.abs(value).toFixed(1).replace(".", ",")}%`;
+  return (
+    <section className="panel balance-panel" aria-labelledby="balance-title">
+      <div className="panel-heading">
+        <div className="inline-title">
+          <Scale size={19} />
+          <h2 id="balance-title">Balanço do período</h2>
+        </div>
+        <span className="balance-caption">Faturamento x gastos</span>
+      </div>
+      <div className="balance-figures">
+        <div>
+          <span>Faturamento</span>
+          <strong>{money(totals.revenue)}</strong>
+          <small>Vendas de produção própria e revenda</small>
+        </div>
+        <div>
+          <span>Gastos</span>
+          <strong>{money(expenses)}</strong>
+          <small>
+            {money(totals.cost)} em mercadorias vendidas · {money(totals.loss)}{" "}
+            em descartes
+          </small>
+        </div>
+        <div className={result >= 0 ? "balance-positive" : "balance-negative"}>
+          <span>Resultado bruto</span>
+          <strong>{money(result)}</strong>
+          <small>
+            {percent(margin)} do faturamento
+            {change !== null &&
+              ` · ${percent(change)} ${change >= 0 ? "acima" : "abaixo"} do período anterior`}
+          </small>
+        </div>
+      </div>
+      <div
+        className="balance-bar"
+        role="img"
+        aria-label={`De ${money(totals.revenue)} faturados, ${money(totals.cost)} cobrem mercadorias vendidas, ${money(totals.loss)} foram descartes e ${money(result)} ficam como resultado bruto.`}
+      >
+        <span
+          className="balance-bar-cost"
+          style={{ width: share(totals.cost) }}
+        />
+        <span
+          className="balance-bar-loss"
+          style={{ width: share(totals.loss) }}
+        />
+        <span className="balance-bar-result" style={{ width: share(result) }} />
+      </div>
+      <ul className="balance-legend" aria-hidden="true">
+        <li>
+          <i className="balance-bar-cost" />
+          Mercadorias vendidas
+        </li>
+        <li>
+          <i className="balance-bar-loss" />
+          Descartes
+        </li>
+        <li>
+          <i className="balance-bar-result" />
+          Resultado bruto
+        </li>
+      </ul>
+      <p className="balance-note">
+        Resultado bruto não é lucro: aluguel, salários, energia, impostos e
+        outras despesas fixas ainda não entram na conta.
+      </p>
+    </section>
   );
 }
 
