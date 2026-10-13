@@ -67,7 +67,11 @@ export function YearHeatmap({
   const best = ranked.slice(0, 3);
   const worst = ranked.slice(-3).reverse();
   const label = (date: string) =>
-    dateLabel(date, { weekday: "short", day: "2-digit", month: "short" });
+    dateLabel(date, {
+      weekday: "short",
+      day: "2-digit",
+      month: "short",
+    }).replace(/^./, (c) => c.toUpperCase());
   return (
     <section className="panel heatmap-panel" aria-labelledby="heatmap-title">
       <div className="panel-heading">
