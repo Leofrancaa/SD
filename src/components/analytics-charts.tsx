@@ -112,7 +112,7 @@ function BestSellers({ records }: { records: DailyRecord[] }) {
         <span>
           {metric === "return"
             ? "Retorno estimado · não inclui despesas fixas"
-            : `O primeiro representa ${percentage(ranked[0][metric], total)} do total`}
+            : `O primeiro representa ${percentage(ranked[0][metric], total)} ${metric === "sold" ? "das unidades vendidas" : "da receita"}`}
         </span>
         <span className="analytics-footer-icon">
           <Trophy size={13} />

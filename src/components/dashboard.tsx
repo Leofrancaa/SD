@@ -390,7 +390,7 @@ export function Dashboard() {
                 />
                 <Metric
                   title="Registros de falta"
-                  value={String(totals.stockouts).padStart(2, "0")}
+                  value={number(totals.stockouts)}
                   icon={TriangleAlert}
                   footer="Dias/produtos que acabaram cedo"
                   warning={totals.stockouts > 0}
@@ -463,6 +463,8 @@ export function Dashboard() {
               />
               <ProductTable
                 records={records}
+                allRecords={store.state.records}
+                days={days}
                 filteredProducts={products}
                 compact
                 onExpand={() => navigate("products")}
@@ -538,6 +540,8 @@ export function Dashboard() {
               </div>
               <ProductTable
                 records={records}
+                allRecords={store.state.records}
+                days={days}
                 filteredProducts={filterProducts}
               />
               <p className="table-footnote">
@@ -1061,16 +1065,21 @@ function RevenueChart({ records }: { records: DailyRecord[] }) {
 
 function ProductTable({
   records,
+  allRecords,
+  days,
   filteredProducts,
   compact = false,
   onExpand,
 }: {
   records: DailyRecord[];
+  allRecords: DailyRecord[];
+  days: number;
   filteredProducts: typeof products;
   compact?: boolean;
   onExpand?: () => void;
 }) {
-  const inventory = inventorySummary(records);
+  // Estoque e giro usam o histórico completo, como no painel de estoque.
+  const inventory = inventorySummary(allRecords, DEMO_END, days);
   return (
     <section className="panel products-panel">
       <div className="panel-heading">
@@ -1120,7 +1129,9 @@ function ProductTable({
               const status = stock
                 ? stock.status
                 : data.stockouts > 0
-                  ? "Faltou no balcão"
+                  ? data.leftover > 0
+                    ? `Faltou em ${data.stockouts} ${data.stockouts === 1 ? "dia" : "dias"}`
+                    : "Faltou no balcão"
                   : rate > 0.16
                     ? "Revisar sobras"
                     : "Em equilíbrio";
@@ -1176,8 +1187,9 @@ function ProductTable({
                           />
                         </div>
                         <span className="cell-detail">
-                          {number(data.leftover)} de sobra ·{" "}
-                          {number(data.discarded)} descartadas
+                          {number(data.leftover)} não vendidas
+                          {data.discarded > 0 &&
+                            ` (${number(data.discarded)} descartadas)`}
                         </span>
                       </>
                     )}
@@ -1511,7 +1523,8 @@ function InventoryPanel({
         <div>
           <h2>Nas prateleiras e no freezer</h2>
           <p className="section-description">
-            Mercadorias de revenda · última contagem até {dateLabel(DEMO_END)}.
+            Mercadorias de revenda · última contagem até{" "}
+            {dateLabel(DEMO_END).replace(/\.$/, "")}.
           </p>
         </div>
         {onExpand && (

@@ -202,8 +202,25 @@ export function addDays(date: string, days: number) {
 }
 export function generateRecords(): DailyRecord[] {
   const base = [520, 140, 100, 48, 72];
+  // Parâmetros por item para o estoque sintético não convergir para o mesmo saldo.
+  const retail: Record<
+    string,
+    { opening: number; receipt: number; every: number; demand: number }
+  > = {
+    "ground-coffee": { opening: 34, receipt: 24, every: 7, demand: 3 },
+    milk: { opening: 40, receipt: 24, every: 7, demand: 5 },
+    nescau: { opening: 22, receipt: 12, every: 7, demand: 2 },
+    "pre-baked": { opening: 28, receipt: 20, every: 7, demand: 3 },
+    ice: { opening: 18, receipt: 30, every: 5, demand: 5 },
+    "frozen-strawberry": { opening: 40, receipt: 0, every: 7, demand: 0 },
+    "frozen-pizza": { opening: 26, receipt: 18, every: 7, demand: 2 },
+    cheese: { opening: 20, receipt: 20, every: 7, demand: 3 },
+    ham: { opening: 24, receipt: 16, every: 7, demand: 2 },
+  };
   const inventory = new Map(
-    products.filter((p) => p.operation === "retail").map((p) => [p.id, 40]),
+    products
+      .filter((p) => p.operation === "retail")
+      .map((p) => [p.id, retail[p.id]?.opening ?? 40]),
   );
   return Array.from({ length: 30 }, (_, day) => {
     const date = addDays(DEMO_END, day - 29);
@@ -211,8 +228,13 @@ export function generateRecords(): DailyRecord[] {
     return products.map((product, index) => {
       if (product.operation === "retail") {
         const openingStock = inventory.get(product.id)!;
-        const received =
-          day % 7 === 0 && product.id !== "frozen-strawberry" ? 24 : 0;
+        const params = retail[product.id] ?? {
+          opening: 40,
+          receipt: 24,
+          every: 7,
+          demand: 2,
+        };
+        const received = day % params.every === 0 ? params.receipt : 0;
         const produced = openingStock + received;
         const demand =
           product.id === "frozen-strawberry"
@@ -220,8 +242,8 @@ export function generateRecords(): DailyRecord[] {
               ? 2
               : 0
             : product.id === "milk"
-              ? 5
-              : 2 + ((day + index) % 3);
+              ? params.demand
+              : Math.max(0, params.demand - 1 + ((day + index) % 3));
         const sold = Math.min(produced, demand);
         const discarded =
           (product.id === "cheese" || product.id === "ham") &&
@@ -402,7 +424,7 @@ export function recommendations(
             id: "coxinha-tuesday",
             tone: "warning",
             title: "Uma fornada menor na terça?",
-            description: `Nas ${tuesdays.length} terças registradas, sobraram em média ${average} coxinhas. Considere testar 10% menos, verificando encomendas e faltas.`,
+            description: `${tuesdays.length === 1 ? "Na única terça registrada, sobraram" : `Nas ${tuesdays.length} terças registradas, sobraram em média`} ${average} coxinhas. Considere testar 10% menos, verificando encomendas e faltas.`,
             productId: "coxinha",
             action: "Revisar produção",
           },
@@ -414,7 +436,7 @@ export function recommendations(
             id: "cheese-stockout",
             tone: "info",
             title: "Pão de queijo merece atenção",
-            description: `O produto acabou antes do fechamento em ${cheese.length} dias. Avalie uma pequena fornada extra e acompanhe a procura.`,
+            description: `O produto acabou antes do fechamento em ${cheese.length} ${cheese.length === 1 ? "dia" : "dias"}. Avalie uma pequena fornada extra e acompanhe a procura.`,
             productId: "cheese-bread",
             action: "Planejar reposição",
           },
