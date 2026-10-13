@@ -58,6 +58,7 @@ import {
   type Decision,
 } from "@/lib/demo";
 import { useDemoStore } from "@/lib/use-demo-store";
+import { Select } from "./ui/select";
 import { AnalyticsCharts } from "./analytics-charts";
 import { BakeryChat } from "./bakery-chat";
 import { OwnerBriefing } from "./owner-briefing";
@@ -339,35 +340,43 @@ export function Dashboard() {
               role="group"
               aria-label="Período de análise"
             >
-              <label>
-                <span>Mês</span>
-                <select
-                  value={period.month ?? ""}
-                  onChange={(event) => {
+              <div className="period-field">
+                <span aria-hidden="true">Mês</span>
+                <Select
+                  ariaLabel="Mês"
+                  size="compact"
+                  value={period.month === null ? "all" : String(period.month)}
+                  options={[
+                    { value: "all", label: "Ano inteiro" },
+                    ...availableMonths(period.year).map((month) => ({
+                      value: String(month),
+                      label: monthLabel(month).replace(/^./, (c) =>
+                        c.toUpperCase(),
+                      ),
+                    })),
+                  ]}
+                  onValueChange={(value) => {
                     const next = {
                       year: period.year,
-                      month: event.target.value
-                        ? Number(event.target.value)
-                        : null,
+                      month: value === "all" ? null : Number(value),
                     };
                     setPeriod(next);
                     updateUrl({ period: next });
                   }}
-                >
-                  <option value="">Ano inteiro</option>
-                  {availableMonths(period.year).map((month) => (
-                    <option key={month} value={month}>
-                      {monthLabel(month).replace(/^./, (c) => c.toUpperCase())}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                <span>Ano</span>
-                <select
-                  value={period.year}
-                  onChange={(event) => {
-                    const year = Number(event.target.value);
+                />
+              </div>
+              <div className="period-field">
+                <span aria-hidden="true">Ano</span>
+                <Select
+                  ariaLabel="Ano"
+                  size="compact"
+                  value={String(period.year)}
+                  options={availableYears().map((year) => ({
+                    value: String(year),
+                    label: String(year),
+                  }))}
+                  onValueChange={(value) => {
+                    const year = Number(value);
                     const months = availableMonths(year);
                     const next = {
                       year,
@@ -381,14 +390,8 @@ export function Dashboard() {
                     setPeriod(next);
                     updateUrl({ period: next });
                   }}
-                >
-                  {availableYears().map((year) => (
-                    <option key={year} value={year}>
-                      {year}
-                    </option>
-                  ))}
-                </select>
-              </label>
+                />
+              </div>
             </div>
             <span className="date-range">
               {dateLabel(bounds.start, {
@@ -1511,11 +1514,13 @@ function RecordForm({
       <div className="form-row">
         <div className="field">
           <label htmlFor="record-product">Produto</label>
-          <select
+          <Select
             id="record-product"
             value={productId}
-            onChange={(e) => {
-              setProductId(e.target.value);
+            options={products.map((p) => ({ value: p.id, label: p.name }))}
+            onValueChange={(value) => {
+              setSaved(false);
+              setProductId(value);
               setProduced("");
               setOpeningStock("");
               setSold("");
@@ -1523,13 +1528,7 @@ function RecordForm({
               setStockout("");
               setError("");
             }}
-          >
-            {products.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
+          />
         </div>
         <div className="field">
           <label htmlFor="record-date">Data</label>
@@ -1611,21 +1610,19 @@ function RecordForm({
           <label htmlFor="record-destination">
             Destino da sobra não descartada
           </label>
-          <select
+          <Select
             id="record-destination"
             value={leftoverDestination}
-            onChange={(e) =>
+            options={Object.entries(leftoverDestinations).map(
+              ([id, label]) => ({ value: id, label }),
+            )}
+            onValueChange={(value) => {
+              setSaved(false);
               setLeftoverDestination(
-                e.target.value as keyof typeof leftoverDestinations,
-              )
-            }
-          >
-            {Object.entries(leftoverDestinations).map(([id, label]) => (
-              <option key={id} value={id}>
-                {label}
-              </option>
-            ))}
-          </select>
+                value as keyof typeof leftoverDestinations,
+              );
+            }}
+          />
         </div>
       )}
       <div className="field">

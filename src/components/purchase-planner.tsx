@@ -9,6 +9,7 @@ import {
   PURCHASE_HISTORY_DAYS,
 } from "@/lib/operations";
 import { downloadFile } from "@/lib/download";
+import { Select } from "./ui/select";
 
 export function PurchasePlanner({
   records,
@@ -73,21 +74,19 @@ export function PurchasePlanner({
       <div className="purchase-toolbar">
         <div className="field">
           <label htmlFor="purchase-horizon">Planejar para</label>
-          <select
+          <Select
             id="purchase-horizon"
-            value={targetDays}
-            onChange={(event) => {
-              setTargetDays(Number(event.target.value));
+            value={String(targetDays)}
+            options={[3, 7, 14].map((value) => ({
+              value: String(value),
+              label: `${value} dias`,
+            }))}
+            onValueChange={(value) => {
+              setTargetDays(Number(value));
               setQuantities({});
               setSelection({});
             }}
-          >
-            {[3, 7, 14].map((value) => (
-              <option key={value} value={value}>
-                {value} dias
-              </option>
-            ))}
-          </select>
+          />
         </div>
         <p>
           Base: média de vendas dos últimos {PURCHASE_HISTORY_DAYS} dias
