@@ -13,6 +13,7 @@ export type Product = {
 };
 export type DailyRecord = {
   date: string;
+  storeId: string;
   productId: string;
   produced: number;
   sold: number;
@@ -38,7 +39,25 @@ export const DEMO_START = "2025-09-01";
 export const DEMO_END = "2026-09-30";
 export const DEMO_DAYS =
   Math.round((Date.parse(DEMO_END) - Date.parse(DEMO_START)) / 86400000) + 1;
-export const STORAGE_KEY = "superdeli-demo-v2";
+export const STORAGE_KEY = "superdeli-demo-v3";
+export type Store = { id: string; name: string; short: string };
+/** Lojas fictícias do piloto. */
+export const stores: Store[] = [
+  { id: "centro", name: "Loja Centro", short: "Centro" },
+  { id: "avenida", name: "Loja Avenida", short: "Avenida" },
+];
+export type StoreFilter = "all" | string;
+export function storeName(id: string) {
+  return stores.find((store) => store.id === id)?.name ?? id;
+}
+export function filterStore(records: DailyRecord[], storeId: StoreFilter) {
+  return storeId === "all"
+    ? records
+    : records.filter((row) => row.storeId === storeId);
+}
+export function storeCount(records: DailyRecord[]) {
+  return new Set(records.map((row) => row.storeId)).size || 1;
+}
 export const products: Product[] = [
   {
     id: "french-bread",
@@ -255,12 +274,54 @@ const retailPlan: Record<
   cheese: { demand: 3, target: 32, deliveries: [1, 4] },
   ham: { demand: 2.6, target: 30, deliveries: [1, 4] },
 };
-export function generateRecords(): DailyRecord[] {
+// Perfil de cada loja: a Avenida é menor, vende mais lanche e produz coxinha com folga demais.
+type StoreProfile = {
+  scale: number;
+  bakery: number[];
+  weekend: number;
+  buffer: (index: number, value: number) => number;
+  retail: number;
+  salt: number;
+};
+const storeProfiles: Record<string, StoreProfile> = {
+  centro: {
+    scale: 1,
+    bakery: [1, 1, 1, 1, 1],
+    weekend: 1.22,
+    buffer: (index, value) =>
+      index === 1 ? 1.02 + value * 0.08 : 1.06 + value * 0.08,
+    retail: 1,
+    salt: 0,
+  },
+  avenida: {
+    scale: 0.72,
+    bakery: [0.62, 1.12, 1.35, 0.85, 1.25],
+    weekend: 1.04,
+    buffer: (index, value) =>
+      index === 2
+        ? 1.16 + value * 0.1
+        : index === 1
+          ? 1.07 + value * 0.07
+          : 1.05 + value * 0.08,
+    retail: 0.7,
+    salt: 101,
+  },
+};
+function generateStoreRecords(storeId: string): DailyRecord[] {
+  const profile = storeProfiles[storeId];
+  const centro = storeId === "centro";
   const base = [520, 140, 100, 48, 72];
+  const target = (id: string) =>
+    Math.max(
+      8,
+      Math.round(
+        (retailPlan[id]?.target ?? 30) * (centro || id === "milk" ? 1 : 0.8),
+      ),
+    );
   const inventory = new Map(
     products
       .filter((p) => p.operation === "retail")
-      .map((p) => [p.id, Math.round((retailPlan[p.id]?.target ?? 30) * 0.7)]),
+      .map((p) => [p.id, Math.round(target(p.id) * 0.7)]),
   );
   return Array.from({ length: DEMO_DAYS }, (_, day) => {
     const date = addDays(DEMO_START, day);
@@ -269,7 +330,8 @@ export function generateRecords(): DailyRecord[] {
     const summer = month === 12 || month <= 3;
     const season = monthFactor[month - 1] * (specialDays[date] ?? 1);
     const trend = 1 + (0.06 * day) / 365;
-    return products.map((product, index) => {
+    const salt = profile.salt;
+    return products.map((product, index): DailyRecord => {
       if (product.operation === "retail") {
         const plan = retailPlan[product.id] ?? {
           demand: 2,
@@ -279,41 +341,50 @@ export function generateRecords(): DailyRecord[] {
         const openingStock = inventory.get(product.id)!;
         const strawberry = product.id === "frozen-strawberry";
         let received = plan.deliveries.includes(weekday)
-          ? Math.max(0, plan.target - openingStock)
+          ? Math.max(0, target(product.id) - openingStock)
           : 0;
         // Morango só é reposto na temporada; a última compra, em março, sobra no freezer.
         if (strawberry && !(summer || month === 11)) received = 0;
         if (strawberry && date.slice(0, 7) === "2026-03" && received)
-          received = Math.max(0, 52 - openingStock);
-        // Entrega parcial de leite na última semana deixa o estoque abaixo do mínimo.
-        if (product.id === "milk" && date === "2026-09-28")
+          received = Math.max(0, (centro ? 52 : 34) - openingStock);
+        // Entrega parcial de leite na última semana deixa o Centro abaixo do mínimo.
+        if (centro && product.id === "milk" && date === "2026-09-28")
           received = Math.max(0, 30 - openingStock);
         const produced = openingStock + received;
         const expected =
           plan.demand *
+          profile.retail *
           (summer && plan.summer ? plan.summer : 1) *
           (weekday === 0 || weekday === 6 ? 1.3 : 1) *
           season *
           trend;
+        const lastSale = centro ? "2026-09-10" : "2026-08-27";
         const demand = strawberry
-          ? date > "2026-09-10"
+          ? date > lastSale
             ? 0
             : summer
-              ? Math.round(1.5 * (0.4 + noise(date, index * 7 + 3) * 1.2))
-              : date === "2026-09-10" || noise(date, index * 7 + 3) < 0.05
+              ? Math.round(
+                  1.5 *
+                    profile.retail *
+                    (0.4 + noise(date, index * 7 + 3 + salt) * 1.2),
+                )
+              : date === lastSale || noise(date, index * 7 + 3 + salt) < 0.05
                 ? 1
                 : 0
-          : Math.round(expected * (0.55 + noise(date, index * 7 + 3) * 0.9));
+          : Math.round(
+              expected * (0.55 + noise(date, index * 7 + 3 + salt) * 0.9),
+            );
         const sold = Math.min(produced, demand);
         const discarded =
           (product.id === "cheese" || product.id === "ham") &&
           produced > sold &&
-          noise(date, index * 13 + 5) < 0.05
+          noise(date, index * 13 + 5 + salt) < 0.05
             ? 1
             : 0;
         inventory.set(product.id, produced - sold - discarded);
         return {
           date,
+          storeId,
           productId: product.id,
           openingStock,
           received,
@@ -325,30 +396,41 @@ export function generateRecords(): DailyRecord[] {
         };
       }
       const weekdayFactor =
-        weekday === 0 || weekday === 6 ? 1.22 : weekday === 1 ? 0.95 : 1;
+        weekday === 0 || weekday === 6
+          ? profile.weekend
+          : weekday === 1
+            ? 0.95
+            : 1;
       let productFactor = 1;
       if (index === 3 && month === 6)
         productFactor =
           date === "2026-06-23" || date === "2026-06-24" ? 2.5 : 1.9;
       else if (index === 3 && month === 7) productFactor = 1.25;
       const usual =
-        base[index] * weekdayFactor * season * trend * productFactor;
+        base[index] *
+        profile.scale *
+        profile.bakery[index] *
+        weekdayFactor *
+        season *
+        trend *
+        productFactor;
       // A produção de coxinha não acompanha a terça mais fraca: é a sobra que a análise aponta.
       const demandFactor = index === 2 && weekday === 2 ? 0.72 : 1;
       const demand = Math.round(
-        usual * demandFactor * (0.9 + noise(date, index * 17 + 11) * 0.2),
+        usual *
+          demandFactor *
+          (0.9 + noise(date, index * 17 + 11 + salt) * 0.2),
       );
-      const buffer =
-        index === 1
-          ? 1.02 + noise(date, index * 19 + 1) * 0.08
-          : 1.06 + noise(date, index * 19 + 1) * 0.08;
-      const produced = Math.round(usual * buffer);
+      const produced = Math.round(
+        usual * profile.buffer(index, noise(date, index * 19 + 1 + salt)),
+      );
       const sold = Math.min(produced, demand);
       const discarded = Math.round(
         (produced - sold) * (index === 0 ? 0.55 : 0.8),
       );
       return {
         date,
+        storeId,
         productId: product.id,
         produced,
         sold,
@@ -365,7 +447,12 @@ export function generateRecords(): DailyRecord[] {
     });
   }).flat();
 }
+export function generateRecords(): DailyRecord[] {
+  return stores.flatMap((store) => generateStoreRecords(store.id));
+}
 export function validateRecord(record: DailyRecord): string | null {
+  if (!stores.some((store) => store.id === record.storeId))
+    return "Selecione uma loja.";
   if (!products.some((p) => p.id === record.productId))
     return "Selecione um produto do piloto.";
   if (
@@ -418,7 +505,7 @@ export function parseState(raw: string): DemoState {
   for (const row of value.records) {
     if (!row || typeof row.stockout !== "string" || validateRecord(row))
       throw new Error("Invalid production record");
-    const key = `${row.date}/${row.productId}`;
+    const key = `${row.storeId}/${row.date}/${row.productId}`;
     if (keys.has(key)) throw new Error("Duplicate production record");
     keys.add(key);
   }
@@ -593,12 +680,15 @@ export function recommendations(
     .filter((p) => !p.operation)
     .map((p) => ({ product: p, ...productSummary(records, p.id) }))
     .sort((a, b) => b.loss - a.loss)[0];
-  const average = tuesdays.length
+  const tuesdayDates = new Set(tuesdays.map((r) => r.date)).size;
+  const multiStore = storeCount(records) > 1;
+  const average = tuesdayDates
     ? Math.round(
         tuesdays.reduce((sum, r) => sum + r.produced - r.sold, 0) /
-          tuesdays.length,
+          tuesdayDates,
       )
     : 0;
+  const cheeseDays = new Set(cheese.map((r) => r.date)).size;
   return [
     ...(average > 0
       ? [
@@ -606,7 +696,7 @@ export function recommendations(
             id: "coxinha-tuesday",
             tone: "warning",
             title: "Uma fornada menor na terça?",
-            description: `${tuesdays.length === 1 ? "Na única terça registrada, sobraram" : `Nas ${tuesdays.length} terças registradas, sobraram em média`} ${average} coxinhas. Considere testar 10% menos, verificando encomendas e faltas.`,
+            description: `${tuesdayDates === 1 ? "Na única terça registrada, sobraram" : `Nas ${tuesdayDates} terças registradas, sobraram em média`} ${average} coxinhas${multiStore ? ", somando as lojas" : ""}. Considere testar 10% menos, verificando encomendas e faltas.`,
             productId: "coxinha",
             action: "Revisar produção",
           },
@@ -618,7 +708,7 @@ export function recommendations(
             id: "cheese-stockout",
             tone: "info",
             title: "Pão de queijo merece atenção",
-            description: `O produto acabou antes do fechamento em ${cheese.length} ${cheese.length === 1 ? "dia" : "dias"}. Avalie uma pequena fornada extra e acompanhe a procura.`,
+            description: `O produto acabou antes do fechamento em ${cheeseDays} ${cheeseDays === 1 ? "dia" : "dias"}${multiStore ? " (em pelo menos uma loja)" : ""}. Avalie uma pequena fornada extra e acompanhe a procura.`,
             productId: "cheese-bread",
             action: "Planejar reposição",
           },
@@ -639,7 +729,7 @@ export function recommendations(
             : `Confira o giro: ${item.product.name}`,
         description:
           item.status === "Repor estoque"
-            ? `${item.stock} embalagens na última contagem; mínimo ilustrativo de ${item.product.minimumStock}. Confira o saldo e as compras em andamento antes de repor.`
+            ? restockDetail(item)
             : `${item.stock} embalagens em estoque e ${item.daysWithoutSale} dias sem venda registrada. Confira validade e procura antes de planejar uma promoção.`,
         productId: item.product.id,
         action: "Revisar estoque",
@@ -658,10 +748,21 @@ export function recommendations(
       : []),
   ];
 }
+/** Texto curto de reposição, apontando a loja quando há mais de uma. */
+export function restockDetail(
+  item: ReturnType<typeof inventorySummary>[number],
+) {
+  const low = item.byStore.filter((entry) => entry.status === "Repor estoque");
+  const minimum = item.product.minimumStock;
+  if (item.byStore.length > 1 && low.length)
+    return `${low.map((entry) => `${storeName(entry.storeId)}: ${entry.stock} emb.`).join(" · ")} na última contagem; mínimo ilustrativo de ${minimum} por loja.`;
+  return `${item.stock} embalagens na última contagem; mínimo ilustrativo de ${minimum}. Confira o saldo e as compras em andamento antes de repor.`;
+}
 export function toCsv(records: DailyRecord[]) {
   const rows = [
     [
       "Data",
+      "Loja",
       "Produto",
       "Produzido ou disponível",
       "Vendido",
@@ -681,6 +782,7 @@ export function toCsv(records: DailyRecord[]) {
       const p = products.find((p) => p.id === r.productId)!;
       return [
         r.date,
+        storeName(r.storeId),
         p.name,
         r.produced,
         r.sold,
@@ -709,62 +811,118 @@ export function toCsv(records: DailyRecord[]) {
 }
 
 export function extendCatalog(state: DemoState): DemoState {
-  const existing = new Set(state.records.map((row) => row.productId));
+  const existing = new Set(
+    state.records.map((row) => `${row.storeId}/${row.productId}`),
+  );
   const additions = generateRecords().filter(
     (row) =>
       products.find((p) => p.id === row.productId)?.operation === "retail" &&
-      !existing.has(row.productId),
+      existing.has(`${row.storeId}/french-bread`) &&
+      !existing.has(`${row.storeId}/${row.productId}`),
   );
   return additions.length
     ? { ...state, records: [...state.records, ...additions] }
     : state;
 }
 
+/**
+ * Estoque de revenda na data final. Cada loja usa a própria última contagem;
+ * com mais de uma loja, os saldos são somados e a situação reflete a pior loja.
+ */
 export function inventorySummary(
   records: DailyRecord[],
   endDate = DEMO_END,
   days = 7,
 ) {
+  const startDate = addDays(endDate, -(days - 1));
   return products
     .filter((p) => p.operation === "retail")
     .map((product) => {
       const history = records
         .filter((r) => r.productId === product.id && r.date <= endDate)
         .sort((a, b) => a.date.localeCompare(b.date));
-      const latest = history.at(-1);
-      const lastSale = history.filter((r) => r.sold > 0).at(-1);
-      const stock = latest
-        ? latest.produced - latest.sold - latest.discarded
-        : null;
-      const startDate = addDays(endDate, -(days - 1));
-      const selected = history.filter((r) => r.date >= startDate);
-      const averageSales = selected.length
-        ? selected.reduce((sum, r) => sum + r.sold, 0) / selected.length
-        : 0;
-      const daysWithoutSale = lastSale
-        ? Math.round(
-            (Date.parse(endDate) - Date.parse(lastSale.date)) / 86400000,
-          )
-        : null;
-      const status =
-        stock === null
-          ? "Sem registro"
-          : stock <= product.minimumStock!
+      const storeIds = [...new Set(history.map((r) => r.storeId))].sort(
+        (a, b) =>
+          stores.findIndex((store) => store.id === a) -
+          stores.findIndex((store) => store.id === b),
+      );
+      const byStore = storeIds.map((storeId) => {
+        const own = history.filter((r) => r.storeId === storeId);
+        const latest = own.at(-1)!;
+        const lastSale = own.filter((r) => r.sold > 0).at(-1);
+        const stock = latest.produced - latest.sold - latest.discarded;
+        const window = own.filter((r) => r.date >= startDate);
+        const averageSales = window.length
+          ? window.reduce((sum, r) => sum + r.sold, 0) / window.length
+          : 0;
+        const daysWithoutSale = lastSale
+          ? Math.round(
+              (Date.parse(endDate) - Date.parse(lastSale.date)) / 86400000,
+            )
+          : null;
+        const status =
+          stock <= product.minimumStock!
             ? "Repor estoque"
             : daysWithoutSale !== null && daysWithoutSale >= 14
               ? "Sem giro recente"
               : "Em equilíbrio";
+        return {
+          storeId,
+          stock,
+          recordedDate: latest.date,
+          lastSaleDate: lastSale?.date ?? null,
+          daysWithoutSale,
+          averageSales,
+          status,
+        };
+      });
+      if (!byStore.length)
+        return {
+          product,
+          stock: null,
+          recordedDate: null,
+          lastSaleDate: null,
+          daysWithoutSale: null,
+          coverageDays: null,
+          stockAtCost: 0,
+          status: "Sem registro",
+          byStore,
+        };
+      const stock = byStore.reduce((sum, item) => sum + item.stock, 0);
+      const averageSales = byStore.reduce(
+        (sum, item) => sum + item.averageSales,
+        0,
+      );
+      const lastSaleDate =
+        byStore
+          .map((item) => item.lastSaleDate)
+          .filter((date): date is string => date !== null)
+          .sort()
+          .at(-1) ?? null;
+      const daysWithoutSale = lastSaleDate
+        ? Math.round(
+            (Date.parse(endDate) - Date.parse(lastSaleDate)) / 86400000,
+          )
+        : null;
+      // A situação mais urgente entre as lojas define a linha consolidada.
+      const status = byStore.some((item) => item.status === "Repor estoque")
+        ? "Repor estoque"
+        : byStore.every((item) => item.status === "Sem giro recente")
+          ? "Sem giro recente"
+          : "Em equilíbrio";
       return {
         product,
         stock,
-        recordedDate: latest?.date ?? null,
-        lastSaleDate: lastSale?.date ?? null,
+        // Data da contagem mais antiga entre as lojas, para não esconder contagem atrasada.
+        recordedDate: byStore.map((item) => item.recordedDate).sort()[0],
+        lastSaleDate,
         daysWithoutSale,
         coverageDays: averageSales
-          ? Math.round((stock! / averageSales) * 10) / 10
+          ? Math.round((stock / averageSales) * 10) / 10
           : null,
-        stockAtCost: stock === null ? 0 : stock * product.cost,
+        stockAtCost: stock * product.cost,
         status,
+        byStore,
       };
     });
 }

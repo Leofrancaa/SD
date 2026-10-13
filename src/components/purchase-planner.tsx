@@ -2,7 +2,13 @@
 
 import { useState } from "react";
 import { Download, ShoppingBasket } from "lucide-react";
-import { DEMO_END, money, number, type DailyRecord } from "@/lib/demo";
+import {
+  DEMO_END,
+  money,
+  number,
+  storeName,
+  type DailyRecord,
+} from "@/lib/demo";
 import {
   purchaseCsv,
   purchasePlan,
@@ -25,7 +31,7 @@ export function PurchasePlanner({
   const [quantities, setQuantities] = useState<Record<string, string>>({});
   const [selection, setSelection] = useState<Record<string, boolean>>({});
   const plan = purchasePlan(records, targetDays).map((item) => {
-    const raw = quantities[item.product.id] ?? String(item.quantity);
+    const raw = quantities[item.key] ?? String(item.quantity);
     const quantity = Number(raw);
     const valid =
       raw.trim() !== "" &&
@@ -37,10 +43,11 @@ export function PurchasePlanner({
       raw,
       quantity,
       valid,
-      selected: selection[item.product.id] ?? item.quantity > 0,
+      selected: selection[item.key] ?? item.quantity > 0,
     };
   });
   const selected = plan.filter((item) => item.selected);
+  const multiStore = new Set(plan.map((item) => item.storeId)).size > 1;
   const invalid = selected.some((item) => !item.valid || item.quantity === 0);
   const estimatedCost = selected
     .filter((item) => item.valid)
@@ -113,24 +120,29 @@ export function PurchasePlanner({
           <tbody>
             {plan.map((item) => (
               <tr
-                key={item.product.id}
+                key={item.key}
                 className={item.selected ? "purchase-selected" : undefined}
               >
                 <td>
                   <input
                     type="checkbox"
-                    aria-label={`Incluir ${item.product.name}`}
+                    aria-label={`Incluir ${item.product.name}${multiStore ? ` · ${storeName(item.storeId)}` : ""}`}
                     checked={item.selected}
                     onChange={(event) =>
                       setSelection((current) => ({
                         ...current,
-                        [item.product.id]: event.target.checked,
+                        [item.key]: event.target.checked,
                       }))
                     }
                   />
                 </td>
                 <th scope="row">
                   <strong>{item.product.name}</strong>
+                  {multiStore && (
+                    <span className="store-chip">
+                      {storeName(item.storeId)}
+                    </span>
+                  )}
                   <span className="cell-detail">
                     {item.stale
                       ? "Confira uma contagem atual antes de comprar"
@@ -155,7 +167,7 @@ export function PurchasePlanner({
                     min="0"
                     max="100000"
                     step="1"
-                    aria-label={`Comprar ${item.product.name}`}
+                    aria-label={`Comprar ${item.product.name}${multiStore ? ` · ${storeName(item.storeId)}` : ""}`}
                     aria-invalid={
                       item.selected && (!item.valid || item.quantity === 0)
                     }
@@ -168,11 +180,11 @@ export function PurchasePlanner({
                     onChange={(event) => {
                       setQuantities((current) => ({
                         ...current,
-                        [item.product.id]: event.target.value,
+                        [item.key]: event.target.value,
                       }));
                       setSelection((current) => ({
                         ...current,
-                        [item.product.id]: true,
+                        [item.key]: true,
                       }));
                     }}
                   />

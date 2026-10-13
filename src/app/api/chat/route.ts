@@ -8,7 +8,7 @@ import {
   chatRequestSchema,
   friendlyChatError,
   selectedChatContext,
-  validatedRecords,
+  expandRecords,
 } from "@/lib/chat-context";
 
 export const runtime = "nodejs";
@@ -70,7 +70,7 @@ export async function POST(request: Request) {
         { status: 413 },
       );
     payload = chatRequestSchema.parse(JSON.parse(body));
-    records = validatedRecords(payload.records);
+    records = expandRecords(payload.records);
   } catch {
     return Response.json(
       {
@@ -109,7 +109,7 @@ export async function POST(request: Request) {
   const createAgent = (modelId: string) =>
     new ToolLoopAgent({
       model: groq(modelId),
-      instructions: `${assistantInstructions}\nAUTHORITATIVE REPORT (server calculated):\n${JSON.stringify(selectedChatContext(records, payload.period))}`,
+      instructions: `${assistantInstructions}\nAUTHORITATIVE REPORT (server calculated):\n${JSON.stringify(selectedChatContext(records, payload.period, payload.store))}`,
       stopWhen: isStepCount(3),
       maxOutputTokens: 1800,
       temperature: 0.2,

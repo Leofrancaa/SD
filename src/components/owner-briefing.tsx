@@ -12,6 +12,7 @@ import {
   money,
   periodBounds,
   periodLabel,
+  restockDetail,
   type DailyRecord,
   type Period,
 } from "@/lib/demo";
@@ -36,7 +37,7 @@ export function OwnerBriefing({
             id: "stock",
             icon: Package,
             title: `Confira a reposição de ${summary.lowStock[0].product.name}`,
-            detail: `${summary.lowStock[0].stock} embalagens na última contagem; mínimo de ${summary.lowStock[0].product.minimumStock}.`,
+            detail: restockDetail(summary.lowStock[0]),
             action: "Planejar compra",
             view: "purchases" as const,
             badge: "Reposição",

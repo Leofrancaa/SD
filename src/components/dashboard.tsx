@@ -23,6 +23,7 @@ import {
   Search,
   Settings2,
   Sparkles,
+  Store,
   TrendingUp,
   TriangleAlert,
   Wheat,
@@ -43,6 +44,10 @@ import {
   periodLabel,
   periodLength,
   type Period,
+  filterStore,
+  storeName,
+  stores,
+  type StoreFilter,
   leftoverDestinations,
   money,
   inventorySummary,
@@ -59,6 +64,8 @@ import {
 } from "@/lib/demo";
 import { useDemoStore } from "@/lib/use-demo-store";
 import { Select } from "./ui/select";
+import { StoreComparison } from "./store-comparison";
+import { YearHeatmap } from "./year-heatmap";
 import { AnalyticsCharts } from "./analytics-charts";
 import { BakeryChat } from "./bakery-chat";
 import { OwnerBriefing } from "./owner-briefing";
@@ -67,6 +74,8 @@ import { OwnerReport } from "./owner-report";
 import { ownerSummary } from "@/lib/operations";
 import { downloadFile } from "@/lib/download";
 
+// Limite de linhas na tabela de registros para manter a página leve no ano inteiro.
+const LEDGER_LIMIT = 200;
 type View =
   | "purchases"
   | "report"
@@ -76,9 +85,11 @@ type View =
   | "products"
   | "insights"
   | "chat"
+  | "stores"
   | "settings";
 const navigation: { id: View; title: string; icon: LucideIcon }[] = [
   { id: "overview", title: "Visão geral", icon: LayoutDashboard },
+  { id: "stores", title: "Comparar lojas", icon: Store },
   { id: "production", title: "Produção e vendas", icon: ClipboardList },
   { id: "inventory", title: "Estoque e reposição", icon: Package },
   { id: "purchases", title: "Lista de compras", icon: ShoppingBasket },
@@ -93,6 +104,7 @@ export function Dashboard() {
   const store = useDemoStore();
   const [view, setView] = useState<View>("overview");
   const [period, setPeriod] = useState<Period>(DEFAULT_PERIOD);
+  const [shop, setShop] = useState<StoreFilter>("all");
   const [query, setQuery] = useState("");
   const [message, setMessage] = useState("");
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -108,6 +120,8 @@ export function Dashboard() {
         navigation.some((item) => item.id === section) ? section : "overview",
       );
       setPeriod(parsePeriod(params.get("periodo")));
+      const loja = params.get("loja");
+      setShop(stores.some((item) => item.id === loja) ? loja! : "all");
       setQuery(params.get("q") ?? "");
     };
     restore();
@@ -135,11 +149,18 @@ export function Dashboard() {
     }
   }, [view]);
 
-  function updateUrl(next: { view?: View; period?: Period; query?: string }) {
+  function updateUrl(next: {
+    view?: View;
+    period?: Period;
+    shop?: StoreFilter;
+    query?: string;
+  }) {
     const params = new URLSearchParams({
       view: next.view ?? view,
       periodo: periodKey(next.period ?? period),
     });
+    const loja = next.shop ?? shop;
+    if (loja !== "all") params.set("loja", loja);
     const search = next.query ?? query;
     if (search) params.set("q", search);
     window.history.pushState({}, "", `?${params}`);
@@ -159,14 +180,16 @@ export function Dashboard() {
       } else headingRef.current?.focus();
     });
   }
-  const records = periodRecords(store.state.records, period);
+  // Registros da loja escolhida (ou de todas); o comparativo usa a base completa.
+  const scoped = filterStore(store.state.records, shop);
+  const records = periodRecords(scoped, period);
   const bounds = periodBounds(period);
   const days = periodLength(period);
   const totals = summarize(records);
-  const owner = ownerSummary(store.state.records, period);
+  const owner = ownerSummary(scoped, period);
   const comparisonAvailable = owner.revenueChange !== null;
   const revenueChange = owner.revenueChange ?? 0;
-  const suggestions = recommendations(records, store.state.records, bounds.end);
+  const suggestions = recommendations(records, scoped, bounds.end);
   const pending = suggestions.filter(
     (item) => !store.state.decisions[item.id],
   ).length;
@@ -231,7 +254,7 @@ export function Dashboard() {
           <span className="workspace-icon">S</span>
           <div>
             <strong>Superdeli</strong>
-            <span>Conceição do Jacuípe, BA</span>
+            <span>Conceição do Jacuípe, BA · {stores.length} lojas</span>
           </div>
         </div>
         <span className="nav-label">PADARIA E MINIMERCADO</span>
@@ -340,6 +363,25 @@ export function Dashboard() {
               role="group"
               aria-label="Período de análise"
             >
+              <div className="period-field">
+                <span aria-hidden="true">Loja</span>
+                <Select
+                  ariaLabel="Loja"
+                  size="compact"
+                  value={shop}
+                  options={[
+                    { value: "all", label: "Todas as lojas" },
+                    ...stores.map((item) => ({
+                      value: item.id,
+                      label: item.name,
+                    })),
+                  ]}
+                  onValueChange={(value) => {
+                    setShop(value);
+                    updateUrl({ shop: value });
+                  }}
+                />
+              </div>
               <div className="period-field">
                 <span aria-hidden="true">Mês</span>
                 <Select
@@ -462,7 +504,7 @@ export function Dashboard() {
                 />
               </section>
               <OwnerBriefing
-                records={store.state.records}
+                records={scoped}
                 period={period}
                 onNavigate={navigate}
               />
@@ -524,14 +566,19 @@ export function Dashboard() {
                 </section>
               </div>
               <AnalyticsCharts records={records} />
+              <YearHeatmap
+                records={scoped}
+                year={period.year}
+                month={period.month}
+              />
               <InventoryPanel
-                records={store.state.records}
+                records={scoped}
                 period={period}
                 onExpand={() => navigate("inventory")}
               />
               <ProductTable
                 records={records}
-                allRecords={store.state.records}
+                allRecords={scoped}
                 days={days}
                 endDate={bounds.end}
                 filteredProducts={products}
@@ -560,18 +607,22 @@ export function Dashboard() {
             </>
           )}
 
+          {view === "stores" && (
+            <StoreComparison records={store.state.records} period={period} />
+          )}
+
           {view === "purchases" && (
             <PurchasePlanner
-              records={store.state.records}
+              records={scoped}
               ready={store.ready && !store.error}
               onNotice={setMessage}
             />
           )}
           {view === "report" && (
-            <OwnerReport records={store.state.records} period={period} />
+            <OwnerReport records={scoped} period={period} />
           )}
           {view === "inventory" && (
-            <InventoryPanel records={store.state.records} period={period} />
+            <InventoryPanel records={scoped} period={period} />
           )}
           {view === "products" && (
             <>
@@ -607,7 +658,7 @@ export function Dashboard() {
               </div>
               <ProductTable
                 records={records}
-                allRecords={store.state.records}
+                allRecords={scoped}
                 days={days}
                 endDate={bounds.end}
                 filteredProducts={filterProducts}
@@ -629,6 +680,8 @@ export function Dashboard() {
                     <span className="tag">Piloto</span>
                   </div>
                   <RecordForm
+                    key={shop}
+                    defaultStore={shop === "all" ? stores[0].id : shop}
                     formRef={formRef}
                     ready={store.ready && !store.error}
                     records={store.state.records}
@@ -639,6 +692,7 @@ export function Dashboard() {
                           ...store.state.records.filter(
                             (r) =>
                               !(
+                                r.storeId === record.storeId &&
                                 r.date === record.date &&
                                 r.productId === record.productId
                               ),
@@ -688,7 +742,11 @@ export function Dashboard() {
               <section className="panel ledger">
                 <div className="panel-heading">
                   <h2>Registros do período</h2>
-                  <span className="muted">{records.length} registros</span>
+                  <span className="muted">
+                    {number(records.length)} registros
+                    {records.length > LEDGER_LIMIT &&
+                      ` · mostrando os ${LEDGER_LIMIT} mais recentes`}
+                  </span>
                 </div>
                 <div className="table-scroll">
                   <table>
@@ -698,6 +756,7 @@ export function Dashboard() {
                     <thead>
                       <tr>
                         <th>Data</th>
+                        <th>Loja</th>
                         <th>Produto</th>
                         <th className="numeric">Produzido / disponível</th>
                         <th className="numeric">Vendido</th>
@@ -712,11 +771,16 @@ export function Dashboard() {
                         .sort(
                           (a, b) =>
                             b.date.localeCompare(a.date) ||
+                            a.storeId.localeCompare(b.storeId) ||
                             a.productId.localeCompare(b.productId),
                         )
+                        .slice(0, LEDGER_LIMIT)
                         .map((record) => (
-                          <tr key={`${record.date}-${record.productId}`}>
+                          <tr
+                            key={`${record.storeId}-${record.date}-${record.productId}`}
+                          >
                             <td>{dateLabel(record.date)}</td>
+                            <td>{storeName(record.storeId)}</td>
                             <th scope="row">
                               {
                                 products.find((p) => p.id === record.productId)!
@@ -971,8 +1035,9 @@ export function Dashboard() {
           )}
           <div hidden={view !== "chat"}>
             <BakeryChat
-              records={store.state.records}
+              records={scoped}
               period={period}
+              store={shop}
               active={view === "chat"}
             />
           </div>
@@ -1415,16 +1480,19 @@ function ProductTable({
 }
 
 function RecordForm({
+  defaultStore,
   formRef,
   ready,
   records,
   onSave,
 }: {
+  defaultStore: string;
   formRef: React.RefObject<HTMLFormElement | null>;
   ready: boolean;
   records: DailyRecord[];
   onSave: (record: DailyRecord) => void;
 }) {
+  const [storeId, setStoreId] = useState(defaultStore);
   const [productId, setProductId] = useState(products[0].id);
   const [date, setDate] = useState(DEMO_END);
   const [produced, setProduced] = useState("");
@@ -1442,7 +1510,8 @@ function RecordForm({
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
   const existing = records.find(
-    (r) => r.date === date && r.productId === productId,
+    (r) =>
+      r.storeId === storeId && r.date === date && r.productId === productId,
   );
   const leftover =
     produced !== "" && sold !== "" ? available - Number(sold) : null;
@@ -1464,6 +1533,7 @@ function RecordForm({
     }
     const record = {
       date,
+      storeId,
       productId,
       produced: available,
       ...(retail
@@ -1511,6 +1581,19 @@ function RecordForm({
       onSubmit={submit}
       onChange={() => setSaved(false)}
     >
+      <div className="field">
+        <label htmlFor="record-store">Loja</label>
+        <Select
+          id="record-store"
+          value={storeId}
+          options={stores.map((item) => ({ value: item.id, label: item.name }))}
+          onValueChange={(value) => {
+            setSaved(false);
+            setStoreId(value);
+            setError("");
+          }}
+        />
+      </div>
       <div className="form-row">
         <div className="field">
           <label htmlFor="record-product">Produto</label>
@@ -1773,6 +1856,16 @@ function InventoryPanel({
                       ? dateLabel(item.recordedDate)
                       : "sem contagem"}
                   </span>
+                  {item.byStore.length > 1 && (
+                    <span className="cell-detail">
+                      {item.byStore
+                        .map(
+                          (entry) =>
+                            `${stores.find((shop) => shop.id === entry.storeId)?.short ?? entry.storeId} ${number(entry.stock)}`,
+                        )
+                        .join(" · ")}
+                    </span>
+                  )}
                 </td>
                 <td className="numeric">{item.product.minimumStock}</td>
                 <td>

@@ -9,10 +9,10 @@ import {
   RotateCcw,
   Send,
 } from "lucide-react";
-import type { Product } from "@/lib/demo";
+import { storeName, type Product } from "@/lib/demo";
 import { groupBySupplier, supplierMessage } from "@/lib/operations";
 
-type Item = { product: Product; quantity: number };
+type Item = { product: Product; quantity: number; storeId?: string };
 
 /**
  * Gera mensagens de pedido por fornecedor, prontas para o dono revisar e
@@ -90,6 +90,7 @@ export function SupplierMessages({
               name: item.product.name,
               quantity: item.quantity,
               unit: item.product.unit,
+              store: item.storeId ? storeName(item.storeId) : undefined,
             })),
           });
           const edit = edits[supplier];

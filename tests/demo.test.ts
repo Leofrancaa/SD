@@ -6,6 +6,8 @@ import {
   weekdayAverages,
 } from "../src/lib/analytics";
 import {
+  filterStore,
+  stores,
   DEFAULT_PERIOD,
   DEMO_DAYS,
   isPeriodComplete,
@@ -26,7 +28,8 @@ import {
   type DailyRecord,
 } from "../src/lib/demo";
 
-const records = generateRecords();
+const allRecords = generateRecords();
+const records = allRecords;
 test("weekday averages normalize repeated weekdays and exclude missing days", () => {
   const row = {
     ...records[0],
@@ -81,7 +84,7 @@ test("product ranking distinguishes volume from revenue and retains negative ret
 });
 test("synthetic history is deterministic and conserves every batch", () => {
   assert.deepEqual(records, generateRecords());
-  assert.equal(records.length, products.length * DEMO_DAYS);
+  assert.equal(records.length, products.length * DEMO_DAYS * stores.length);
   assert.equal(new Set(records.map((r) => r.date)).size, DEMO_DAYS);
   assert.equal(records[0].date, "2025-09-01");
   assert.equal(records.at(-1)!.date, "2026-09-30");
@@ -136,11 +139,11 @@ test("rejects impossible batches, malformed dates and incompatible stockouts", (
 test("date filters preserve complete ranges and do not silently compare partial months", () => {
   assert.equal(
     periodRecords(records, { year: 2026, month: 2 }).length,
-    products.length * 28,
+    products.length * 28 * stores.length,
   );
   assert.equal(
     periodRecords(records, { year: 2025, month: null }).length,
-    products.length * 122,
+    products.length * 122 * stores.length,
   );
   assert.equal(periodLength({ year: 2026, month: null }), 273);
   assert.equal(isPeriodComplete({ year: 2026, month: null }), false);
@@ -183,6 +186,7 @@ test("CSV includes BOM and separately exports remaining and discarded units", ()
 });
 
 test("retail stocks carry forward, use one closing snapshot and preserve legacy edits", () => {
+  const records = filterStore(allRecords, "centro");
   const retail = products.filter((p) => p.operation === "retail");
   for (const product of retail) {
     const history = records.filter((r) => r.productId === product.id);

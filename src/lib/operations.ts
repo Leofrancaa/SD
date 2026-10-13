@@ -8,6 +8,9 @@ import {
   periodRecords,
   previousPeriod,
   products,
+  storeCount,
+  storeName,
+  stores,
   summarize,
   type DailyRecord,
   type Period,
@@ -17,14 +20,23 @@ import {
 export const PURCHASE_HISTORY_DAYS = 28;
 import { rankProducts } from "./analytics";
 
+/** Sugestão de compra por loja e mercadoria (cada loja recebe a própria entrega). */
 export function purchasePlan(records: DailyRecord[], targetDays = 7) {
   if (![3, 7, 14].includes(targetDays))
     throw new Error("Invalid purchase horizon");
   const start = addDays(DEMO_END, -(PURCHASE_HISTORY_DAYS - 1));
-  return inventorySummary(records, DEMO_END, PURCHASE_HISTORY_DAYS).map(
-    (item) => {
+  const storeIds = stores
+    .map((store) => store.id)
+    .filter((id) => records.some((row) => row.storeId === id));
+  return (storeIds.length ? storeIds : [stores[0].id]).flatMap((storeId) =>
+    inventorySummary(
+      records.filter((row) => row.storeId === storeId),
+      DEMO_END,
+      PURCHASE_HISTORY_DAYS,
+    ).map((item) => {
       const history = records.filter(
         (row) =>
+          row.storeId === storeId &&
           row.productId === item.product.id &&
           row.date >= start &&
           row.date <= DEMO_END,
@@ -48,6 +60,8 @@ export function purchasePlan(records: DailyRecord[], targetDays = 7) {
             );
       return {
         ...item,
+        storeId,
+        key: `${storeId}:${item.product.id}`,
         recordedDays: history.length,
         sold,
         averageDailySales,
@@ -55,7 +69,7 @@ export function purchasePlan(records: DailyRecord[], targetDays = 7) {
         estimatedCost: quantity * item.product.cost,
         stale,
       };
-    },
+    }),
   );
 }
 
@@ -78,8 +92,9 @@ export function ownerSummary(records: DailyRecord[], period: Period) {
     before !== null &&
     isPeriodComplete(period) &&
     isPeriodComplete(before) &&
-    selected.length === products.length * days &&
-    previousRecords.length === products.length * periodLength(before);
+    selected.length === products.length * days * storeCount(records) &&
+    previousRecords.length ===
+      products.length * periodLength(before) * storeCount(records);
   const previous = complete ? summarize(previousRecords) : null;
   return {
     totals,
@@ -94,7 +109,7 @@ export function ownerSummary(records: DailyRecord[], period: Period) {
       .reduce((sum, item) => sum + item.stockAtCost, 0),
     recordedDates: new Set(selected.map((row) => row.date)).size,
     coveragePercent: Math.round(
-      (selected.length / (products.length * days)) * 100,
+      (selected.length / (products.length * days * storeCount(records))) * 100,
     ),
     previous,
     revenueChange:
@@ -111,6 +126,7 @@ export function ownerSummary(records: DailyRecord[], period: Period) {
 export function purchaseCsv(
   rows: {
     product: (typeof products)[number];
+    storeId?: string;
     stock: number | null;
     quantity: number;
   }[],
@@ -124,6 +140,7 @@ export function purchaseCsv(
       `${targetDays} dias de cobertura + estoque mínimo`,
     ],
     [
+      "Loja",
       "Produto",
       "Estoque contado",
       "Quantidade planejada",
@@ -132,6 +149,7 @@ export function purchaseCsv(
       "Compra estimada (BRL)",
     ],
     ...rows.map((row) => [
+      row.storeId ? storeName(row.storeId) : "",
       row.product.name,
       row.stock ?? "",
       row.quantity,
@@ -162,16 +180,25 @@ export function supplierMessage({
   delivery,
 }: {
   supplier: string;
-  items: { name: string; quantity: number; unit: string }[];
+  items: { name: string; quantity: number; unit: string; store?: string }[];
   delivery?: string;
 }) {
-  const lines = items.map(
-    (item) => `• ${item.quantity} ${item.unit} — ${item.name}`,
-  );
+  const line = (item: (typeof items)[number]) =>
+    `• ${item.quantity} ${item.unit} — ${item.name}`;
+  const storeNames = [...new Set(items.map((item) => item.store ?? ""))];
+  // Com mais de uma loja, separa os itens pelo endereço de entrega.
+  const lines =
+    storeNames.length > 1
+      ? storeNames.flatMap((name, index) => [
+          ...(index ? [""] : []),
+          `*${name}*`,
+          ...items.filter((item) => (item.store ?? "") === name).map(line),
+        ])
+      : items.map(line);
   const when = delivery?.trim();
   return [
     `Olá, ${supplier}! Tudo bem?`,
-    `Aqui é da ${STORE_SIGNATURE}. Gostaria de fazer o seguinte pedido:`,
+    `Aqui é da ${STORE_SIGNATURE}. Gostaria de fazer o seguinte pedido${storeNames.length === 1 && storeNames[0] ? ` para a ${storeNames[0]}` : ""}:`,
     "",
     ...lines,
     "",

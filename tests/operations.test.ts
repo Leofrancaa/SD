@@ -21,10 +21,13 @@ const records = generateRecords();
 
 test("purchase plan uses the latest snapshot, daily demand, safety stock and acquisition cost", () => {
   const milk = purchasePlan(records, 7).find(
-    (item) => item.product.id === "milk",
+    (item) => item.product.id === "milk" && item.storeId === "centro",
   )!;
   const history = records.filter(
-    (row) => row.productId === "milk" && row.date >= addDays(DEMO_END, -27),
+    (row) =>
+      row.storeId === "centro" &&
+      row.productId === "milk" &&
+      row.date >= addDays(DEMO_END, -27),
   );
   assert.equal(history.length, 28);
   const average =
@@ -46,8 +49,9 @@ test("purchase plan uses the latest snapshot, daily demand, safety stock and acq
     0,
   );
   assert.ok(
-    purchasePlan(records, 14).find((item) => item.product.id === "milk")!
-      .quantity > milk.quantity,
+    purchasePlan(records, 14).find(
+      (item) => item.product.id === "milk" && item.storeId === "centro",
+    )!.quantity > milk.quantity,
   );
   assert.throws(() => purchasePlan(records, 10));
 });

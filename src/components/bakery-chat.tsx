@@ -31,6 +31,7 @@ import {
   type DailyRecord,
   type Period,
 } from "@/lib/demo";
+import { compactRecords } from "@/lib/chat-context";
 
 type ChatEntry = {
   id: string;
@@ -52,10 +53,12 @@ const questions = [
 export function BakeryChat({
   records,
   period,
+  store,
   active,
 }: {
   records: DailyRecord[];
   period: Period;
+  store: string;
   active: boolean;
 }) {
   const [entries, setEntries] = useState<ChatEntry[]>([]);
@@ -150,13 +153,9 @@ export function BakeryChat({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           messages: [...history, { role: "user", content: question.trim() }],
-          // O destino das sobras não entra nos cálculos do chat; omitido para reduzir o envio.
-          records: records.map((row) => {
-            const copy = { ...row };
-            delete copy.leftoverDestination;
-            return copy;
-          }),
+          records: compactRecords(records),
           period,
+          store,
         }),
         signal: AbortSignal.any([
           controller.signal,
