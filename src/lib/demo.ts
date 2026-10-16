@@ -926,3 +926,118 @@ export function inventorySummary(
       };
     });
 }
+
+export type StockAlertLevel = "out" | "critical" | "warning";
+export const stockAlertLabels: Record<StockAlertLevel, string> = {
+  out: "Esgotado",
+  critical: "Abaixo do mínimo",
+  warning: "Perto do mínimo",
+};
+/** Até 50% acima do mínimo a mercadoria já aparece como "perto do mínimo". */
+export const STOCK_WARNING_FACTOR = 1.5;
+const alertRank: Record<StockAlertLevel, number> = {
+  out: 0,
+  critical: 1,
+  warning: 2,
+};
+
+/** Nível de alerta de um saldo. "Abaixo do mínimo" coincide com "Repor estoque". */
+export function stockAlertLevel(
+  stock: number,
+  minimum: number,
+): StockAlertLevel | null {
+  if (stock <= 0) return "out";
+  if (stock <= minimum) return "critical";
+  if (stock <= minimum * STOCK_WARNING_FACTOR) return "warning";
+  return null;
+}
+
+/** Mercadorias de revenda quase acabando, por loja, da mais urgente para a menos. */
+export function stockAlerts(
+  records: DailyRecord[],
+  endDate = DEMO_END,
+  days = 7,
+) {
+  return inventorySummary(records, endDate, days)
+    .flatMap((item) =>
+      item.byStore.flatMap((entry) => {
+        const minimum = item.product.minimumStock!;
+        const level = stockAlertLevel(entry.stock, minimum);
+        if (!level) return [];
+        return [
+          {
+            key: `${entry.storeId}:${item.product.id}`,
+            storeId: entry.storeId,
+            product: item.product,
+            stock: entry.stock,
+            minimum,
+            averageSales: entry.averageSales,
+            coverageDays: entry.averageSales
+              ? Math.round((entry.stock / entry.averageSales) * 10) / 10
+              : null,
+            recordedDate: entry.recordedDate,
+            level,
+          },
+        ];
+      }),
+    )
+    .sort(
+      (a, b) =>
+        alertRank[a.level] - alertRank[b.level] ||
+        (a.coverageDays ?? Infinity) - (b.coverageDays ?? Infinity) ||
+        a.stock / a.minimum - b.stock / b.minimum,
+    );
+}
+
+/** Última contagem de uma mercadoria em uma loja (a que define o estoque atual). */
+export function latestStockRecord(
+  records: DailyRecord[],
+  storeId: string,
+  productId: string,
+) {
+  return records
+    .filter((row) => row.storeId === storeId && row.productId === productId)
+    .reduce<DailyRecord | undefined>(
+      (latest, row) => (!latest || row.date > latest.date ? row : latest),
+      undefined,
+    );
+}
+
+/**
+ * Venda simulada de uma mercadoria de revenda: soma a quantidade às vendas da
+ * última contagem da loja, reduzindo o estoque final. Não altera dias anteriores.
+ */
+export function simulateSale(
+  records: DailyRecord[],
+  sale: { storeId: string; productId: string; quantity: number },
+) {
+  const product = products.find((p) => p.id === sale.productId);
+  if (!product || product.operation !== "retail")
+    throw new Error("Escolha uma mercadoria de revenda.");
+  if (!stores.some((store) => store.id === sale.storeId))
+    throw new Error("Selecione uma loja.");
+  const latest = latestStockRecord(records, sale.storeId, sale.productId);
+  if (!latest)
+    throw new Error("Esta mercadoria ainda não tem contagem nesta loja.");
+  const available = latest.produced - latest.sold - latest.discarded;
+  if (available <= 0)
+    throw new Error(
+      `${product.name} está esgotado na ${storeName(sale.storeId)}. Registre uma entrada antes de vender.`,
+    );
+  if (!Number.isSafeInteger(sale.quantity) || sale.quantity < 1)
+    throw new Error("Informe uma quantidade inteira a partir de 1.");
+  if (sale.quantity > available)
+    throw new Error(
+      `Há ${number(available)} ${product.unit} em estoque. Venda até essa quantidade.`,
+    );
+  const updated: DailyRecord = { ...latest, sold: latest.sold + sale.quantity };
+  const issue = validateRecord(updated);
+  if (issue) throw new Error(issue);
+  return {
+    records: records.map((row) => (row === latest ? updated : row)),
+    previous: latest,
+    updated,
+    product,
+    stock: available - sale.quantity,
+  };
+}

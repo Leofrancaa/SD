@@ -56,6 +56,10 @@ import {
   products,
   productSummary,
   recommendations,
+  simulateSale,
+  stockAlertLabels,
+  stockAlertLevel,
+  stockAlerts,
   summarize,
   toCsv,
   validateRecord,
@@ -71,6 +75,11 @@ import { BakeryChat } from "./bakery-chat";
 import { OwnerBriefing } from "./owner-briefing";
 import { PurchasePlanner } from "./purchase-planner";
 import { OwnerReport } from "./owner-report";
+import {
+  SaleSimulator,
+  StockAlerts,
+  type StockHighlight,
+} from "./stock-alerts";
 import { ownerSummary } from "@/lib/operations";
 import { downloadFile } from "@/lib/download";
 
@@ -107,6 +116,12 @@ export function Dashboard() {
   const [shop, setShop] = useState<StoreFilter>("all");
   const [query, setQuery] = useState("");
   const [message, setMessage] = useState("");
+  // Última venda simulada nesta sessão, para poder desfazer.
+  const [lastSale, setLastSale] = useState<{
+    previous: DailyRecord;
+    updated: DailyRecord;
+  } | null>(null);
+  const [highlight, setHighlight] = useState<StockHighlight>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const navigationRef = useRef<HTMLElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
@@ -223,6 +238,73 @@ export function Dashboard() {
       setMessage((error as Error).message);
     }
   }
+  function sell(sale: {
+    storeId: string;
+    productId: string;
+    quantity: number;
+  }) {
+    const result = simulateSale(store.state.records, sale);
+    store.save({ ...store.state, records: result.records });
+    setLastSale({ previous: result.previous, updated: result.updated });
+    setHighlight({
+      key: `${sale.storeId}:${sale.productId}`,
+      nonce: Date.now(),
+    });
+    const minimum = result.product.minimumStock!;
+    const level = stockAlertLevel(result.stock, minimum);
+    const before = stockAlertLevel(
+      result.previous.produced -
+        result.previous.sold -
+        result.previous.discarded,
+      minimum,
+    );
+    const unit = result.product.unit;
+    setMessage(
+      `Venda simulada: ${number(sale.quantity)} ${unit} de ${result.product.name} na ${storeName(sale.storeId)}. Estoque agora: ${number(result.stock)} ${unit}${level ? ` · ${stockAlertLabels[level].toLowerCase()}` : ""}.${level && level !== before ? " O item foi para Quase acabando." : ""}`,
+    );
+  }
+  function undoSale() {
+    if (!lastSale) return;
+    const { previous, updated } = lastSale;
+    const current = store.state.records.find(
+      (row) =>
+        row.storeId === updated.storeId &&
+        row.productId === updated.productId &&
+        row.date === updated.date,
+    );
+    if (!current || current.sold !== updated.sold) {
+      setLastSale(null);
+      setMessage(
+        "O registro mudou depois da venda simulada. Confira os números em Produção e vendas.",
+      );
+      return;
+    }
+    try {
+      store.save({
+        ...store.state,
+        records: store.state.records.map((row) =>
+          row === current ? previous : row,
+        ),
+      });
+      setLastSale(null);
+      setHighlight({
+        key: `${previous.storeId}:${previous.productId}`,
+        nonce: Date.now(),
+      });
+      const product = products.find((p) => p.id === previous.productId)!;
+      setMessage(
+        `Venda simulada desfeita. ${product.name} voltou para ${number(previous.produced - previous.sold - previous.discarded)} ${product.unit} na ${storeName(previous.storeId)}.`,
+      );
+    } catch (error) {
+      setMessage((error as Error).message);
+    }
+  }
+  const currentAlerts = stockAlerts(scoped, bounds.end, days);
+  const simulatorStore =
+    shop === "all" ? (currentAlerts[0]?.storeId ?? stores[0].id) : shop;
+  const simulatorProduct =
+    currentAlerts.find((item) => item.storeId === simulatorStore)?.product.id ??
+    products.find((p) => p.operation === "retail")!.id;
   const filterProducts = products.filter((p) =>
     `${p.name} ${p.category}`
       .toLocaleLowerCase("pt-BR")
@@ -505,6 +587,14 @@ export function Dashboard() {
                   warning={totals.stockouts > 0}
                 />
               </section>
+              <StockAlerts
+                records={scoped}
+                period={period}
+                highlight={highlight}
+                limit={6}
+                onSimulate={() => navigate("inventory")}
+                onPlan={() => navigate("purchases")}
+              />
               <OwnerBriefing
                 records={scoped}
                 period={period}
@@ -576,6 +666,7 @@ export function Dashboard() {
               <InventoryPanel
                 records={scoped}
                 period={period}
+                highlight={highlight}
                 onExpand={() => navigate("inventory")}
               />
               <ProductTable
@@ -624,7 +715,32 @@ export function Dashboard() {
             <OwnerReport records={scoped} period={period} />
           )}
           {view === "inventory" && (
-            <InventoryPanel records={scoped} period={period} />
+            <>
+              <div className="stock-workspace">
+                <StockAlerts
+                  records={scoped}
+                  period={period}
+                  highlight={highlight}
+                  onPlan={() => navigate("purchases")}
+                />
+                <SaleSimulator
+                  key={shop}
+                  records={store.state.records}
+                  period={period}
+                  defaultStore={simulatorStore}
+                  defaultProduct={simulatorProduct}
+                  ready={store.ready && !store.error}
+                  canUndo={lastSale !== null}
+                  onSell={sell}
+                  onUndo={undoSale}
+                />
+              </div>
+              <InventoryPanel
+                records={scoped}
+                period={period}
+                highlight={highlight}
+              />
+            </>
           )}
           {view === "products" && (
             <>
@@ -1764,12 +1880,15 @@ function RecordForm({
 function InventoryPanel({
   records,
   period,
+  highlight,
   onExpand,
 }: {
   records: DailyRecord[];
   period: Period;
+  highlight?: StockHighlight;
   onExpand?: () => void;
 }) {
+  const highlighted = highlight?.key.split(":")[1];
   const { end } = periodBounds(period);
   const inventory = inventorySummary(records, end, periodLength(period));
   const stockValue = inventory.reduce((sum, item) => sum + item.stockAtCost, 0);
@@ -1838,7 +1957,19 @@ function InventoryPanel({
           </thead>
           <tbody>
             {inventory.map((item) => (
-              <tr key={item.product.id}>
+              <tr
+                key={
+                  highlighted === item.product.id
+                    ? `${item.product.id}-${highlight!.nonce}`
+                    : item.product.id
+                }
+                className={[
+                  item.status === "Repor estoque" ? "row-alert" : "",
+                  highlighted === item.product.id ? "just-updated" : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+              >
                 <th scope="row">
                   <div className="product-name">
                     <span className="product-avatar avatar-1">

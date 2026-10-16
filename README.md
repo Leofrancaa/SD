@@ -28,7 +28,7 @@ Import `Leofrancaa/SD`, select Next.js and use the repository root. The build co
 
 ## Owner workflows
 
-The overview prioritizes restocking, discarded losses, idle goods and shortages. The purchase draft estimates quantities for 3/7/14 days, supports manual review and exports selected items at illustrative purchase cost. Exporting never places an order. The owner report prints to A4 or PDF through the browser, with financial definitions and explicit simulation labels. Comparisons require complete matched periods; drafts are not persisted or sent to chat.
+The overview prioritizes restocking, discarded losses, idle goods and shortages, and highlights resale goods that are almost out of stock. The inventory screen includes a sale simulator that deducts a demo sale from the latest count so the alerts, purchase draft and metrics update live. The purchase draft estimates quantities for 3/7/14 days, supports manual review and exports selected items at illustrative purchase cost. Exporting never places an order. The owner report prints to A4 or PDF through the browser, with financial definitions and explicit simulation labels. Comparisons require complete matched periods; drafts are not persisted or sent to chat.
 
 ## Demo boundaries
 
