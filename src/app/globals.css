@@ -43,6 +43,14 @@ html {
   scrollbar-gutter: stable;
   scroll-behavior: smooth;
 }
+/*
+ * O html já reserva o espaço da barra de rolagem. Sem isto, o bloqueio de
+ * rolagem das listas (Radix) soma uma segunda margem e espreme a página
+ * sempre que um select é aberto.
+ */
+html body[data-scroll-locked] {
+  margin-right: 0 !important;
+}
 body {
   margin: 0;
   background: var(--background);
@@ -454,6 +462,7 @@ a {
 }
 .period-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 17px;
   margin-top: 28px;
@@ -620,6 +629,27 @@ a {
   margin-left: auto;
   font-size: 10px;
   color: var(--muted);
+}
+/* Em telas estreitas os filtros ocupam a largura: loja em cima, mês e ano lado a lado. */
+@media (max-width: 600px) {
+  .period-picker {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+  .period-picker > .period-field:first-child {
+    grid-column: 1 / -1;
+  }
+  .period-field {
+    min-width: 0;
+  }
+  .period-field > span {
+    flex-shrink: 0;
+  }
+  .period-field .select-trigger.compact {
+    flex: 1;
+    min-width: 0;
+  }
 }
 .status-banner {
   min-height: 20px;
