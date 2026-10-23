@@ -14,6 +14,7 @@ import {
   Download,
   LayoutDashboard,
   Leaf,
+  LogOut,
   MapPin,
   MessageCircle,
   Package,
@@ -82,6 +83,8 @@ import {
 } from "./stock-alerts";
 import { ownerSummary } from "@/lib/operations";
 import { downloadFile } from "@/lib/download";
+import { canAccess, roleLabels, type Role } from "@/lib/roles";
+import { logout } from "@/app/login/actions";
 
 // Limite de linhas na tabela de registros para manter a página leve no ano inteiro.
 const LEDGER_LIMIT = 200;
@@ -109,9 +112,13 @@ const navigation: { id: View; title: string; icon: LucideIcon }[] = [
   { id: "settings", title: "Sobre o piloto", icon: Settings2 },
 ];
 
-export function Dashboard() {
+export function Dashboard({ role }: { role: Role }) {
   const store = useDemoStore();
-  const [view, setView] = useState<View>("overview");
+  // Menu e telas liberados para o perfil; a primeira é a tela inicial.
+  const allowed = navigation.filter((item) => canAccess(role, item.id));
+  const home = allowed[0].id;
+  const fullAccess = role === "admin";
+  const [view, setView] = useState<View>(home);
   const [period, setPeriod] = useState<Period>(DEFAULT_PERIOD);
   const [shop, setShop] = useState<StoreFilter>("all");
   const [query, setQuery] = useState("");
@@ -132,7 +139,10 @@ export function Dashboard() {
       const params = new URLSearchParams(window.location.search);
       const section = params.get("view") as View;
       setView(
-        navigation.some((item) => item.id === section) ? section : "overview",
+        navigation.some((item) => item.id === section) &&
+          canAccess(role, section)
+          ? section
+          : home,
       );
       setPeriod(parsePeriod(params.get("periodo")));
       const loja = params.get("loja");
@@ -142,7 +152,7 @@ export function Dashboard() {
     restore();
     window.addEventListener("popstate", restore);
     return () => window.removeEventListener("popstate", restore);
-  }, []);
+  }, [role, home]);
 
   useEffect(() => {
     const navigation = navigationRef.current;
@@ -181,6 +191,7 @@ export function Dashboard() {
     window.history.pushState({}, "", `?${params}`);
   }
   function navigate(next: View, focusForm = false) {
+    if (!canAccess(role, next)) return;
     setView(next);
     setMessage("");
     updateUrl({ view: next });
@@ -341,7 +352,7 @@ export function Dashboard() {
         </div>
         <span className="nav-label">PADARIA E MINIMERCADO</span>
         <nav ref={navigationRef} aria-label="Menu principal">
-          {navigation.map(({ id, title, icon: Icon }) => (
+          {allowed.map(({ id, title, icon: Icon }) => (
             <button
               key={id}
               className={`nav-item ${view === id ? "active" : ""}`}
@@ -394,9 +405,13 @@ export function Dashboard() {
               <span />
               Dados sintéticos
             </span>
-            <div className="avatar" aria-label="Perfil de demonstração">
-              SD
-            </div>
+            <span className="role-badge">{roleLabels[role]}</span>
+            <form action={logout}>
+              <button className="button secondary logout-button" type="submit">
+                <LogOut size={15} />
+                Sair
+              </button>
+            </form>
           </div>
         </header>
         <main id="main" className="page-content">
@@ -427,19 +442,21 @@ export function Dashboard() {
                                   : "Uma base para começar pequeno e aprender com a rotina."}
               </p>
             </div>
-            <div className="heading-actions">
-              <button className="button secondary" onClick={exportRecords}>
-                <Download size={17} />
-                Exportar
-              </button>
-              <button
-                className="button primary"
-                onClick={() => navigate("production", true)}
-              >
-                <Plus size={18} />
-                Registrar dia
-              </button>
-            </div>
+            {fullAccess && (
+              <div className="heading-actions">
+                <button className="button secondary" onClick={exportRecords}>
+                  <Download size={17} />
+                  Exportar
+                </button>
+                <button
+                  className="button primary"
+                  onClick={() => navigate("production", true)}
+                >
+                  <Plus size={18} />
+                  Registrar dia
+                </button>
+              </div>
+            )}
           </div>
           <div className="period-row">
             <div
@@ -721,7 +738,11 @@ export function Dashboard() {
                   records={scoped}
                   period={period}
                   highlight={highlight}
-                  onPlan={() => navigate("purchases")}
+                  onPlan={
+                    canAccess(role, "purchases")
+                      ? () => navigate("purchases")
+                      : undefined
+                  }
                 />
                 <SaleSimulator
                   key={shop}
@@ -1151,14 +1172,16 @@ export function Dashboard() {
               </a>
             </section>
           )}
-          <div hidden={view !== "chat"}>
-            <BakeryChat
-              records={scoped}
-              period={period}
-              store={shop}
-              active={view === "chat"}
-            />
-          </div>
+          {canAccess(role, "chat") && (
+            <div hidden={view !== "chat"}>
+              <BakeryChat
+                records={scoped}
+                period={period}
+                store={shop}
+                active={view === "chat"}
+              />
+            </div>
+          )}
           <footer className="page-footer">
             <span>
               Superdeli <span className="footer-dot">·</span> Feito para a

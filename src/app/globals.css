@@ -400,16 +400,52 @@ a {
   background: var(--accent);
   border-radius: 50%;
 }
-.avatar {
-  width: 31px;
-  height: 31px;
-  border-radius: 50%;
+.role-badge {
+  padding: 5px 10px;
+  border-radius: 999px;
   background: var(--primary-soft);
   color: var(--primary);
+  font-size: 11px;
+  font-weight: 700;
+}
+.logout-button {
+  min-height: 32px;
+  padding: 6px 11px;
+}
+.login-shell {
+  min-height: 100dvh;
   display: grid;
   place-items: center;
-  font-size: 10px;
-  font-weight: 700;
+  padding: 24px 16px;
+}
+.login-card {
+  width: 100%;
+  max-width: 380px;
+  padding: 32px 28px;
+}
+.login-symbol {
+  margin-bottom: 16px;
+}
+.login-card h1 {
+  margin: 0;
+  font-size: 22px;
+}
+.login-card > p {
+  margin: 6px 0 22px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.login-form {
+  display: grid;
+  gap: 14px;
+}
+.login-form .button {
+  margin-top: 4px;
+}
+.login-error {
+  margin: 0;
+  color: var(--danger);
+  font-size: 12px;
 }
 .page-content {
   padding: 34px 38px 20px;
@@ -2757,7 +2793,7 @@ tbody tr:hover {
     font-size: 9px;
     padding: 4px 7px;
   }
-  .avatar {
+  .role-badge {
     display: none;
   }
   h1 {

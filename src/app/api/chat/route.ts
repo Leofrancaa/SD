@@ -10,6 +10,8 @@ import {
   selectedChatContext,
   expandRecords,
 } from "@/lib/chat-context";
+import { sessionFromRequest } from "@/lib/auth";
+import { canAccess } from "@/lib/roles";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -25,6 +27,17 @@ export function GET() {
 }
 
 export async function POST(request: Request) {
+  const session = sessionFromRequest(request);
+  if (!session)
+    return Response.json(
+      { error: "Sessão expirada. Entre novamente." },
+      { status: 401 },
+    );
+  if (!canAccess(session.role, "chat"))
+    return Response.json(
+      { error: "Seu perfil não tem acesso ao chat." },
+      { status: 403 },
+    );
   const origin = request.headers.get("origin");
   try {
     if (

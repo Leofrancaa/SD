@@ -19,6 +19,9 @@ import {
   validatedRecords,
 } from "../src/lib/chat-context";
 import { GET, POST } from "../src/app/api/chat/route";
+import { createToken, SESSION_COOKIE } from "../src/lib/auth";
+
+const adminCookie = `${SESSION_COOKIE}=${createToken("admin")}`;
 
 const records = generateRecords();
 test("chat rejects system messages, forged records, oversized history and client model overrides", () => {
@@ -117,7 +120,11 @@ test("chat API masks configuration and rejects cross-origin and invalid payloads
     const request = (body: string, origin = "http://localhost:3000") =>
       new Request("http://localhost:3000/api/chat", {
         method: "POST",
-        headers: { origin, "Content-Type": "application/json" },
+        headers: {
+          origin,
+          "Content-Type": "application/json",
+          cookie: adminCookie,
+        },
         body,
       });
     assert.equal(
@@ -135,6 +142,7 @@ test("chat API masks configuration and rejects cross-origin and invalid payloads
               host: "127.0.0.1:3000",
               origin: "http://127.0.0.1:3000",
               "Content-Type": "application/json",
+              cookie: adminCookie,
             },
             body: "{}",
           }),
@@ -143,6 +151,21 @@ test("chat API masks configuration and rejects cross-origin and invalid payloads
       400,
     );
     assert.equal((await POST(request("x".repeat(1_500_001)))).status, 413);
+    const anonymous = new Request("http://localhost:3000/api/chat", {
+      method: "POST",
+      headers: { origin: "http://localhost:3000" },
+      body: "{}",
+    });
+    assert.equal((await POST(anonymous)).status, 401);
+    const manager = new Request("http://localhost:3000/api/chat", {
+      method: "POST",
+      headers: {
+        origin: "http://localhost:3000",
+        cookie: `${SESSION_COOKIE}=${createToken("gerencia")}`,
+      },
+      body: "{}",
+    });
+    assert.equal((await POST(manager)).status, 403);
     delete process.env.GROQ_API_KEY;
     assert.equal((await POST(request("{}"))).status, 503);
   } finally {
@@ -175,7 +198,13 @@ test("chat falls back once on Groq rate limits without exposing upstream errors"
               type: "rate_limit_error",
             },
           }),
-          { status: 429, headers: { "Content-Type": "application/json" } },
+          {
+            status: 429,
+            headers: {
+              "Content-Type": "application/json",
+              cookie: adminCookie,
+            },
+          },
         );
       const chunk = (delta: Record<string, unknown>, finish: string | null) =>
         `data: ${JSON.stringify({ id: "test", object: "chat.completion.chunk", created: 1, model: body.model, choices: [{ index: 0, delta, finish_reason: finish }] })}\n\n`;
@@ -192,6 +221,7 @@ test("chat falls back once on Groq rate limits without exposing upstream errors"
         headers: {
           origin: "http://localhost:3000",
           "Content-Type": "application/json",
+          cookie: adminCookie,
           "x-vercel-forwarded-for": "test-client",
         },
         body: JSON.stringify({

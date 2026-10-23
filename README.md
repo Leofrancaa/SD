@@ -11,6 +11,17 @@ npm run dev
 
 Open http://localhost:3000. The dashboard works without credentials. For chat, copy `.env.example` to `.env.local` and set `GROQ_API_KEY`. Never use a `NEXT_PUBLIC_` prefix for this credential. `GROQ_MODEL` optionally overrides the default `openai/gpt-oss-120b`. If the primary model is rate-limited or unavailable before emitting any text, the server makes one bounded attempt with `openai/gpt-oss-20b`; partial responses are never mixed across models.
 
+## Login e perfis
+
+Sem banco de dados: um usuário por perfil, senha em variável de ambiente e sessão em cookie assinado (HMAC, 8 h).
+
+| Usuário    | Acesso                                                    |
+| ---------- | --------------------------------------------------------- |
+| `admin`    | Todas as telas, exportação e chat                         |
+| `gerencia` | Somente Estoque e reposição; chat bloqueado também na API |
+
+Defina `AUTH_SECRET` (32+ caracteres), `ADMIN_PASSWORD` e `GERENCIA_PASSWORD` na Vercel (produção e preview). Sem elas o login fica bloqueado. Em `npm run dev` valem os padrões `admin`/`admin` e `gerencia`/`gerencia`. Os dados sintéticos ainda vão no bundle do navegador, então a restrição da gerência é de interface; com dados reais, filtre no servidor.
+
 ## Verify
 
 ```sh
