@@ -1,0 +1,56 @@
+name: Coletor Windows (.exe)
+
+on:
+  push:
+    branches: [main]
+    paths: ["coletor/**", ".github/workflows/coletor.yml"]
+  pull_request:
+    paths: ["coletor/**", ".github/workflows/coletor.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: coletor
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Dependências
+        run: python -m pip install -r requirements.txt pyinstaller==6.11.1
+
+      - name: Gerar .exe
+        run: >
+          pyinstaller --noconfirm --clean --onefile --windowed
+          --name SuperdeliColetor
+          --icon assets/icone.ico
+          --add-data "assets;assets"
+          --collect-data customtkinter
+          --hidden-import keyring.backends.Windows
+          --hidden-import pystray._win32
+          run_coletor.py
+
+      - name: Autoteste do .exe
+        shell: pwsh
+        run: |
+          $saida = Join-Path $env:RUNNER_TEMP "autoteste.txt"
+          Start-Process -FilePath dist\SuperdeliColetor.exe -ArgumentList "--autoteste", "`"$saida`"" -Wait
+          Get-Content $saida
+          if (Select-String -Path $saida -Pattern "^FALHA" -Quiet) { exit 1 }
+          (Get-FileHash dist\SuperdeliColetor.exe -Algorithm SHA256).Hash | Tee-Object dist\SHA256.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SuperdeliColetor
+          path: |
+            coletor/dist/SuperdeliColetor.exe
+            coletor/dist/SHA256.txt
+          retention-days: 30
