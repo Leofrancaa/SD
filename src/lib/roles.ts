@@ -8,10 +8,11 @@ export const roleLabels: Record<Role, string> = {
   gerencia: "Gerência",
 };
 
-// null = acesso total. Gerência vê as vendas, sem o chat com IA.
+// null = acesso total. Gerência vê vendas, produtos e os insights já gerados;
+// não usa o chat nem gera novos insights (custo de IA).
 const allowedViews: Record<Role, readonly string[] | null> = {
   admin: null,
-  gerencia: ["vendas"],
+  gerencia: ["vendas", "produtos", "insights"],
 };
 
 export function canAccess(role: Role, view: string) {

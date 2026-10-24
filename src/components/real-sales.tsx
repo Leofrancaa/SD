@@ -1,197 +1,73 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useMemo, useState } from "react";
 import {
   ArrowDownRight,
+  ArrowRight,
   ArrowUpRight,
   BarChart3,
   Clock3,
   CreditCard,
   Download,
-  Lightbulb,
   Receipt,
-  RefreshCw,
-  Search,
   ShoppingBag,
-  Trophy,
+  Sparkles,
   TrendingUp,
   Wallet,
-  X,
   type LucideIcon,
 } from "lucide-react";
-import { Select } from "./ui/select";
+import { ApiErrorBanner, SalesToolbar, filterQuery } from "./sales-filters";
+import { Chapter } from "./products-view";
+import { InsightCard, InsightsLoading, useInsights } from "./insights-view";
 import { downloadFile } from "@/lib/download";
 import {
+  dateBr,
+  integer,
+  money,
+  moneyShort,
+  percent,
+  share,
+  shortDate,
+  signedPercent,
+  titleCase,
+} from "@/lib/format";
+import { useApi } from "@/lib/use-api";
+import { useSalesFilters } from "@/lib/use-sales-filters";
+import {
   bucketSeries,
-  daysBetween,
   faixaLabels,
   formatQuantity,
-  highlights,
   hourGrid,
-  isIsoDate,
-  isPreset,
-  isSituacao,
-  presetLabels,
-  presetRange,
   serieCsv,
-  situacaoLabels,
-  todayInStore,
   variation,
   weekdayLong,
   weekdayStats,
   type PainelVendas,
   type Ponto,
-  type Preset,
-  type Situacao,
 } from "@/lib/vendas";
 
-const REFRESH_MS = 5 * 60_000;
+export type NavTarget = "produtos" | "insights" | "chat";
 
-const money = (value: number) =>
-  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
-    value,
-  );
-const moneyShort = (value: number) =>
-  value >= 1000
-    ? `R$ ${(value / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} mil`
-    : money(value);
-const integer = (value: number) => Math.round(value).toLocaleString("pt-BR");
-const percent = (value: number, digits = 1) =>
-  `${value.toLocaleString("pt-BR", { minimumFractionDigits: digits, maximumFractionDigits: digits })}%`;
-const share = (part: number, total: number) =>
-  total ? (part / total) * 100 : 0;
-const dateBr = (date: string, options: Intl.DateTimeFormatOptions) =>
-  new Intl.DateTimeFormat("pt-BR", { ...options, timeZone: "UTC" }).format(
-    new Date(`${date}T12:00:00Z`),
-  );
-const shortDate = (date: string) =>
-  dateBr(date, { day: "2-digit", month: "2-digit" });
-
-type Range = { ini: string; fim: string };
-
-function readUrl(): {
-  preset: Preset;
-  custom: Range | null;
-  situacao: Situacao;
-} {
-  const params = new URLSearchParams(window.location.search);
-  const vp = params.get("vp");
-  const vi = params.get("vi");
-  const vf = params.get("vf");
-  const vs = params.get("vs");
-  const custom =
-    isIsoDate(vi) && isIsoDate(vf) && vi <= vf ? { ini: vi, fim: vf } : null;
-  return {
-    preset: isPreset(vp) && (vp !== "personalizado" || custom) ? vp : "30d",
-    custom,
-    situacao: isSituacao(vs) ? vs : "todas",
-  };
-}
-
-function writeUrl(preset: Preset, custom: Range | null, situacao: Situacao) {
-  const params = new URLSearchParams(window.location.search);
-  params.set("vp", preset);
-  if (preset === "personalizado" && custom) {
-    params.set("vi", custom.ini);
-    params.set("vf", custom.fim);
-  } else {
-    params.delete("vi");
-    params.delete("vf");
-  }
-  if (situacao === "todas") params.delete("vs");
-  else params.set("vs", situacao);
-  window.history.replaceState(window.history.state, "", `?${params}`);
-}
+const capitalize = (text: string) =>
+  text.charAt(0).toUpperCase() + text.slice(1);
 
 export function RealSales({
   onMessage,
+  onNavigate,
+  onAsk,
+  canInsights,
 }: {
   onMessage: (text: string) => void;
+  onNavigate: (view: NavTarget) => void;
+  onAsk?: (question: string) => void;
+  canInsights: boolean;
 }) {
-  const router = useRouter();
-  const [today, setToday] = useState(() => todayInStore());
-  const [preset, setPreset] = useState<Preset>("30d");
-  const [custom, setCustom] = useState<Range | null>(null);
-  const [situacao, setSituacao] = useState<Situacao>("todas");
-  const [ready, setReady] = useState(false);
-  const [data, setData] = useState<PainelVendas | null>(null);
-  const [loadedKey, setLoadedKey] = useState<string | null>(null);
-  const [error, setError] = useState<{ text: string; config?: boolean } | null>(
-    null,
+  const filters = useSalesFilters();
+  const url = filters.ready ? `/api/vendas?${filterQuery(filters)}` : null;
+  const { data, error, loading } = useApi<PainelVendas>(url, filters.nonce);
+  const compare = !(
+    filters.range.ini === filters.range.fim && filters.incompleteDay
   );
-  const [nonce, setNonce] = useState(0);
-
-  useEffect(() => {
-    const restore = () => {
-      const state = readUrl();
-      setPreset(state.preset);
-      setCustom(state.custom);
-      setSituacao(state.situacao);
-      setReady(true);
-    };
-    restore();
-  }, []);
-
-  const range: Range = useMemo(() => {
-    if (preset === "personalizado" && custom) return custom;
-    return presetRange(preset === "personalizado" ? "30d" : preset, today);
-  }, [preset, custom, today]);
-  const requestKey = `${range.ini}|${range.fim}|${situacao}|${nonce}`;
-  const loading = !ready || loadedKey !== requestKey;
-
-  useEffect(() => {
-    if (!ready) return;
-    writeUrl(preset, custom, situacao);
-  }, [ready, preset, custom, situacao]);
-
-  useEffect(() => {
-    if (!ready) return;
-    const controller = new AbortController();
-    const params = new URLSearchParams({ ...range, situacao });
-    fetch(`/api/vendas?${params}`, {
-      signal: controller.signal,
-      cache: "no-store",
-    })
-      .then(async (response) => {
-        const body = await response.json().catch(() => ({}));
-        if (response.status === 401) {
-          router.push("/login");
-          return;
-        }
-        if (!response.ok) {
-          setError({
-            text: body.error ?? "Não foi possível carregar as vendas.",
-            config: body.code === "not_configured",
-          });
-          return;
-        }
-        setError(null);
-        setData(body as PainelVendas);
-      })
-      .catch((reason) => {
-        if (controller.signal.aborted) return;
-        console.error(reason);
-        setError({ text: "Sem conexão com o servidor. Tente de novo." });
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setLoadedKey(requestKey);
-      });
-    return () => controller.abort();
-  }, [ready, range, situacao, requestKey, router]);
-
-  // Atualiza sozinho a cada 5 min com a aba visível (os dados chegam a cada ~30 min).
-  useEffect(() => {
-    const timer = window.setInterval(() => {
-      if (document.visibilityState !== "visible") return;
-      setToday(todayInStore());
-      setNonce((value) => value + 1);
-    }, REFRESH_MS);
-    return () => window.clearInterval(timer);
-  }, []);
-
-  const incompleteDay = range.fim === today;
-  const compare = !(range.ini === range.fim && incompleteDay);
   const series = useMemo(
     () =>
       data
@@ -217,130 +93,26 @@ export function RealSales({
     );
   }
 
-  const firstDay = data?.base.primeiro_dia ?? undefined;
-
   return (
     <div className="rs" aria-busy={loading}>
-      <div className="rs-toolbar" role="group" aria-label="Filtros das vendas">
-        <div className="period-field">
-          <span aria-hidden="true">Período</span>
-          <Select
-            ariaLabel="Período"
-            size="compact"
-            value={preset}
-            options={(Object.keys(presetLabels) as Preset[]).map((key) => ({
-              value: key,
-              label: presetLabels[key],
-            }))}
-            onValueChange={(value) => {
-              const next = value as Preset;
-              if (next === "personalizado" && !custom) setCustom(range);
-              setPreset(next);
-            }}
-          />
-        </div>
-        {preset === "personalizado" && custom && (
-          <div className="rs-dates">
-            <label>
-              <span>De</span>
-              <input
-                type="date"
-                value={custom.ini}
-                min={firstDay}
-                max={custom.fim}
-                onChange={(event) => {
-                  const ini = event.target.value;
-                  if (
-                    isIsoDate(ini) &&
-                    ini <= custom.fim &&
-                    daysBetween(ini, custom.fim) <= 800
-                  )
-                    setCustom({ ...custom, ini });
-                }}
-              />
-            </label>
-            <label>
-              <span>Até</span>
-              <input
-                type="date"
-                value={custom.fim}
-                min={custom.ini}
-                max={today}
-                onChange={(event) => {
-                  const fim = event.target.value;
-                  if (isIsoDate(fim) && fim >= custom.ini && fim <= today)
-                    setCustom({ ...custom, fim });
-                }}
-              />
-            </label>
-          </div>
-        )}
-        <div className="period-field">
-          <span aria-hidden="true">Pedidos</span>
-          <Select
-            ariaLabel="Situação dos pedidos"
-            size="compact"
-            value={situacao}
-            options={(Object.keys(situacaoLabels) as Situacao[]).map((key) => ({
-              value: key,
-              label: situacaoLabels[key],
-            }))}
-            onValueChange={(value) => setSituacao(value as Situacao)}
-          />
-        </div>
-        <span className="date-range">
-          {range.ini === range.fim
-            ? dateBr(range.ini, {
-                day: "2-digit",
-                month: "short",
-                year: "numeric",
-              })
-            : `${dateBr(range.ini, { day: "2-digit", month: "short" })} — ${dateBr(range.fim, { day: "2-digit", month: "short", year: "numeric" })}`}
-        </span>
-        <div className="rs-toolbar-actions">
-          <button
-            className="button secondary"
-            onClick={() => {
-              setToday(todayInStore());
-              setNonce((value) => value + 1);
-            }}
-            disabled={loading}
-          >
-            <RefreshCw size={15} className={loading ? "rs-spin" : ""} />
-            Atualizar
-          </button>
-          <button
-            className="button secondary"
-            onClick={exportCsv}
-            disabled={!data || loading}
-          >
-            <Download size={15} />
-            Exportar
-          </button>
-        </div>
-      </div>
+      <SalesToolbar
+        filters={filters}
+        loading={loading}
+        firstDay={data?.base.primeiro_dia}
+        label="Filtros das vendas"
+      >
+        <button
+          className="button secondary"
+          onClick={exportCsv}
+          disabled={!data || loading}
+        >
+          <Download size={15} />
+          Exportar
+        </button>
+      </SalesToolbar>
 
       {data && <Freshness data={data} />}
-
-      {error && (
-        <div className="error-banner rs-error" role="alert">
-          <strong>{error.text}</strong>
-          {error.config ? (
-            <span>
-              Falta definir SUPABASE_URL, SUPABASE_SECRET_KEY e
-              SUPABASE_EMPRESA_ID nas variáveis do servidor.
-            </span>
-          ) : (
-            <button
-              className="text-button"
-              onClick={() => setNonce((v) => v + 1)}
-            >
-              Tentar de novo
-            </button>
-          )}
-        </div>
-      )}
-
+      {error && <ApiErrorBanner error={error} onRetry={filters.refresh} />}
       {!data && loading && !error && (
         <p className="rs-loading" role="status">
           Carregando as vendas da Superdeli…
@@ -349,40 +121,228 @@ export function RealSales({
 
       {data && series && (
         <div className={`rs-content ${loading ? "rs-stale" : ""}`}>
-          <Kpis data={data} compare={compare} incompleteDay={incompleteDay} />
-          <SituacaoNote data={data} />
           {data.resumo.pedidos === 0 ? (
-            <section className="panel rs-empty">
-              <h2>Sem vendas nesse período</h2>
-              <p>
-                A base vai de{" "}
-                {data.base.primeiro_dia
-                  ? shortDate(data.base.primeiro_dia)
-                  : "—"}{" "}
-                a {data.base.ultimo_dia ? shortDate(data.base.ultimo_dia) : "—"}
-                . Escolha outro período.
-              </p>
-            </section>
-          ) : (
             <>
-              <Highlights items={highlights(data, compare)} />
-              <SeriesChart
-                pontos={series.pontos}
-                granularidade={series.granularidade}
+              <Kpis
+                data={data}
+                compare={compare}
+                incompleteDay={filters.incompleteDay}
               />
-              <HourHeatmap data={data} />
-              <div className="analytics-grid rs-grid">
-                <WeekdayPanel data={data} />
-                <TicketBands data={data} />
-                <PaymentsPanel data={data} />
-                <ProductsTop data={data} />
-              </div>
-              <ProductsTable data={data} />
+              <section className="panel rs-empty">
+                <h2>Sem vendas nesse período</h2>
+                <p>
+                  A base vai de{" "}
+                  {data.base.primeiro_dia
+                    ? shortDate(data.base.primeiro_dia)
+                    : "—"}{" "}
+                  a{" "}
+                  {data.base.ultimo_dia ? shortDate(data.base.ultimo_dia) : "—"}
+                  . Escolha outro período.
+                </p>
+              </section>
             </>
+          ) : (
+            <Story
+              data={data}
+              series={series}
+              compare={compare}
+              incompleteDay={filters.incompleteDay}
+              filters={filters}
+              canInsights={canInsights}
+              onNavigate={onNavigate}
+              onAsk={onAsk}
+            />
           )}
         </div>
       )}
     </div>
+  );
+}
+
+function Story({
+  data,
+  series,
+  compare,
+  incompleteDay,
+  filters,
+  canInsights,
+  onNavigate,
+  onAsk,
+}: {
+  data: PainelVendas;
+  series: ReturnType<typeof bucketSeries>;
+  compare: boolean;
+  incompleteDay: boolean;
+  filters: ReturnType<typeof useSalesFilters>;
+  canInsights: boolean;
+  onNavigate: (view: NavTarget) => void;
+  onAsk?: (question: string) => void;
+}) {
+  const { resumo, anterior } = data;
+  const fatVar = compare
+    ? variation(resumo.faturamento, anterior.faturamento)
+    : null;
+  const melhorDia = [...data.serie].sort(
+    (a, b) => b.faturamento - a.faturamento,
+  )[0];
+  const semana = weekdayStats(data).filter((d) => d.pedidos);
+  const diaForte = [...semana].sort(
+    (a, b) => b.mediaFaturamento - a.mediaFaturamento,
+  )[0];
+  const diaFraco = [...semana].sort(
+    (a, b) => a.mediaFaturamento - b.mediaFaturamento,
+  )[0];
+  let pico = { dia: 0, hora: 0, pedidos: 0 };
+  for (const linha of hourGrid(data).linhas)
+    for (const c of linha.celulas)
+      if (c.pedidos > pico.pedidos)
+        pico = { dia: linha.dia, hora: c.hora, pedidos: c.pedidos };
+  const abaixo20 = data.faixas_ticket
+    .filter((f) => f.faixa <= 2)
+    .reduce((sum, f) => sum + f.pedidos, 0);
+  const pag = data.pagamentos[0];
+  const top10 = data.produtos
+    .slice(0, 10)
+    .reduce((sum, p) => sum + p.faturamento, 0);
+
+  const c1 = `${money(resumo.faturamento)} em ${integer(resumo.pedidos)} pedidos${
+    fatVar !== null
+      ? `, ${signedPercent(fatVar)} contra o período anterior`
+      : ""
+  }.${melhorDia && data.serie.length > 1 ? ` Melhor dia: ${dateBr(melhorDia.data, { weekday: "long", day: "2-digit", month: "2-digit" })} (${moneyShort(melhorDia.faturamento)}).` : ""}${incompleteDay ? " Hoje ainda está em andamento." : ""}`;
+  const c2 =
+    diaForte && pico.pedidos
+      ? `${capitalize(weekdayLong[diaForte.dia - 1])} é o dia mais forte (média de ${moneyShort(diaForte.mediaFaturamento)})${diaFraco && diaFraco.dia !== diaForte.dia ? ` e ${weekdayLong[diaFraco.dia - 1]} o mais fraco (${moneyShort(diaFraco.mediaFaturamento)})` : ""}. O pico é ${weekdayLong[pico.dia - 1]} às ${pico.hora}h.`
+      : "Distribuição das vendas por dia da semana e horário.";
+  const c3 = `Ticket médio de ${money(resumo.ticket_medio)}: ${percent(share(abaixo20, resumo.pedidos), 0)} dos pedidos ficam abaixo de R$ 20${pag ? ` e ${pag.forma.toLowerCase()} responde por ${percent(share(pag.faturamento, resumo.faturamento), 0)} do faturamento` : ""}.`;
+  const c4 = `Os 10 produtos que mais faturam somam ${percent(share(top10, resumo.faturamento), 0)} do faturamento, entre ${integer(data.produtos_distintos)} produtos vendidos.`;
+
+  return (
+    <>
+      {canInsights && (
+        <AiSummary filters={filters} onNavigate={onNavigate} onAsk={onAsk} />
+      )}
+
+      <Chapter n={1} title="Como foi o período" caption={c1} />
+      <Kpis data={data} compare={compare} incompleteDay={incompleteDay} />
+      <SituacaoNote data={data} />
+      <SeriesChart
+        pontos={series.pontos}
+        granularidade={series.granularidade}
+      />
+
+      <Chapter n={2} title="Quando a loja vende" caption={c2} />
+      <HourHeatmap data={data} />
+      <div className="rs-grid rs-grid-single">
+        <WeekdayPanel data={data} />
+      </div>
+
+      <Chapter n={3} title="Como o cliente compra" caption={c3} />
+      <div className="analytics-grid rs-grid">
+        <TicketBands data={data} />
+        <PaymentsPanel data={data} />
+      </div>
+
+      <Chapter n={4} title="O que mais vende" caption={c4} />
+      <TopProductsStrip data={data} onMore={() => onNavigate("produtos")} />
+    </>
+  );
+}
+
+function AiSummary({
+  filters,
+  onNavigate,
+  onAsk,
+}: {
+  filters: ReturnType<typeof useSalesFilters>;
+  onNavigate: (view: NavTarget) => void;
+  onAsk?: (question: string) => void;
+}) {
+  const { data, error, loading } = useInsights(filters);
+  if (loading && !data) return <InsightsLoading />;
+  if (error && !data)
+    return (
+      <p className="rs-note">
+        <Sparkles size={13} /> Resumo da Cifrai indisponível agora: {error.text}
+      </p>
+    );
+  if (!data) return null;
+  const top = [...data.conteudo.insights]
+    .sort(
+      (a, b) =>
+        ["alto", "medio", "baixo"].indexOf(a.impacto) -
+        ["alto", "medio", "baixo"].indexOf(b.impacto),
+    )
+    .slice(0, 3);
+  return (
+    <>
+      <section className="panel rs-ai-hero">
+        <span className="rs-ai-label">
+          <Sparkles size={16} />
+          Resumo da Cifrai
+        </span>
+        <h2>{data.conteudo.manchete}</h2>
+        <p>{data.conteudo.resumo}</p>
+      </section>
+      <div className="rs-insight-grid rs-insight-top3">
+        {top.map((insight) => (
+          <InsightCard key={insight.titulo} insight={insight} onAsk={onAsk} />
+        ))}
+      </div>
+      <button
+        type="button"
+        className="rs-more"
+        onClick={() => onNavigate("insights")}
+      >
+        Ver todos os insights e combos sugeridos
+        <ArrowRight size={16} />
+      </button>
+    </>
+  );
+}
+
+function TopProductsStrip({
+  data,
+  onMore,
+}: {
+  data: PainelVendas;
+  onMore: () => void;
+}) {
+  const top = data.produtos.slice(0, 8);
+  const max = Math.max(...top.map((p) => p.faturamento), 1);
+  return (
+    <section className="panel rs-top-strip">
+      <ol>
+        {top.map((p, i) => (
+          <li key={p.codigo}>
+            <span className={`rank-number ${i === 0 ? "first" : ""}`}>
+              {i + 1}
+            </span>
+            <div>
+              <div className="rs-top-line">
+                <strong>{titleCase(p.produto)}</strong>
+                <span>{money(p.faturamento)}</span>
+              </div>
+              <div className="ranking-track" aria-hidden="true">
+                <span
+                  className={i === 0 ? "leading" : ""}
+                  style={{ width: `${(p.faturamento / max) * 100}%` }}
+                />
+              </div>
+              <small>
+                {formatQuantity(p.qtd, p.unidade)} ·{" "}
+                {percent(share(p.faturamento, data.resumo.faturamento))} do
+                faturamento
+              </small>
+            </div>
+          </li>
+        ))}
+      </ol>
+      <button type="button" className="rs-more" onClick={onMore}>
+        Ver todos os produtos, curva ABC e o que está em alta
+        <ArrowRight size={16} />
+      </button>
+    </section>
   );
 }
 
@@ -538,26 +498,6 @@ function SituacaoNote({ data }: { data: PainelVendas }) {
         deve contar como venda.
       </em>
     </p>
-  );
-}
-
-function Highlights({ items }: { items: string[] }) {
-  if (!items.length) return null;
-  return (
-    <section
-      className="panel rs-highlights"
-      aria-labelledby="rs-highlights-title"
-    >
-      <div className="inline-title">
-        <Lightbulb size={19} />
-        <h2 id="rs-highlights-title">O que os números mostram</h2>
-      </div>
-      <ul>
-        {items.map((item) => (
-          <li key={item}>{item}</li>
-        ))}
-      </ul>
-    </section>
   );
 }
 
@@ -996,211 +936,6 @@ function PaymentsPanel({ data }: { data: PainelVendas }) {
           width: (row.faturamento / maximum) * 100,
         }))}
       />
-    </section>
-  );
-}
-
-function ProductsTop({ data }: { data: PainelVendas }) {
-  const [metric, setMetric] = useState<"faturamento" | "vendas">("faturamento");
-  const sorted = [...data.produtos]
-    .sort((a, b) => b[metric] - a[metric])
-    .slice(0, 6);
-  const maximum = Math.max(...sorted.map((row) => row[metric]), 1);
-  return (
-    <section className="panel analytics-panel">
-      <div className="panel-heading">
-        <div className="inline-title">
-          <Trophy size={19} />
-          <h2>Os favoritos do balcão</h2>
-        </div>
-        <span className="analytics-caption">Top 6</span>
-      </div>
-      <div
-        className="chart-toggle ranking-toggle"
-        role="group"
-        aria-label="Ordenar favoritos"
-      >
-        <button
-          aria-pressed={metric === "faturamento"}
-          className={metric === "faturamento" ? "selected" : ""}
-          onClick={() => setMetric("faturamento")}
-        >
-          Faturamento
-        </button>
-        <button
-          aria-pressed={metric === "vendas"}
-          className={metric === "vendas" ? "selected" : ""}
-          onClick={() => setMetric("vendas")}
-        >
-          Mais vendidos
-        </button>
-      </div>
-      <RankList
-        rows={sorted.map((row) => ({
-          key: row.codigo,
-          label: titleCase(row.produto),
-          detail: `${formatQuantity(row.qtd, row.unidade)} · ${percent(share(row.faturamento, data.resumo.faturamento))} do faturamento`,
-          value:
-            metric === "faturamento"
-              ? moneyShort(row.faturamento)
-              : `${integer(row.vendas)} vendas`,
-          width: (row[metric] / maximum) * 100,
-        }))}
-      />
-    </section>
-  );
-}
-
-function titleCase(text: string) {
-  return text
-    .toLocaleLowerCase("pt-BR")
-    .replace(
-      /(^|[\s/(-])(\p{L})/gu,
-      (_, sep: string, ch: string) => sep + ch.toLocaleUpperCase("pt-BR"),
-    );
-}
-
-type SortKey = "faturamento" | "qtd" | "vendas" | "preco";
-
-function ProductsTable({ data }: { data: PainelVendas }) {
-  const [query, setQuery] = useState("");
-  const [sort, setSort] = useState<SortKey>("faturamento");
-  const [expanded, setExpanded] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const normalize = (text: string) =>
-    text.toLocaleLowerCase("pt-BR").normalize("NFD").replace(/[̀-ͯ]/g, "");
-  const rows = data.produtos
-    .map((row) => ({ ...row, preco: row.qtd ? row.faturamento / row.qtd : 0 }))
-    .filter(
-      (row) =>
-        !query ||
-        normalize(`${row.produto} ${row.codigo}`).includes(normalize(query)),
-    )
-    .sort((a, b) => b[sort] - a[sort]);
-  const visible = expanded || query ? rows : rows.slice(0, 15);
-  const headers: { key: SortKey; label: string }[] = [
-    { key: "faturamento", label: "Faturamento" },
-    { key: "qtd", label: "Quantidade" },
-    { key: "vendas", label: "Vendas" },
-    { key: "preco", label: "Preço médio" },
-  ];
-  return (
-    <section
-      className="panel products-panel rs-products"
-      aria-labelledby="rs-products-title"
-    >
-      <div className="panel-heading">
-        <div>
-          <h2 id="rs-products-title">Produtos</h2>
-          <p className="section-description">
-            Os {data.produtos.length} que mais faturaram, de{" "}
-            {integer(data.produtos_distintos)} produtos vendidos no período.
-            Clique no título da coluna para ordenar.
-          </p>
-        </div>
-        <div className="search-field rs-search">
-          <Search size={16} aria-hidden="true" />
-          <input
-            ref={inputRef}
-            type="search"
-            placeholder="Buscar produto ou código"
-            aria-label="Buscar produto"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-          />
-          {query && (
-            <button
-              aria-label="Limpar busca"
-              onClick={() => {
-                setQuery("");
-                inputRef.current?.focus();
-              }}
-            >
-              <X size={15} />
-            </button>
-          )}
-        </div>
-      </div>
-      <div className="table-scroll">
-        <table>
-          <thead>
-            <tr>
-              <th scope="col">Produto</th>
-              {headers.map((header) => (
-                <th
-                  scope="col"
-                  key={header.key}
-                  aria-sort={sort === header.key ? "descending" : "none"}
-                  className="rs-num"
-                >
-                  <button
-                    className={`rs-sort ${sort === header.key ? "active" : ""}`}
-                    onClick={() => setSort(header.key)}
-                  >
-                    {header.label}
-                    {sort === header.key && (
-                      <ArrowDownRight size={12} aria-hidden="true" />
-                    )}
-                  </button>
-                </th>
-              ))}
-              <th scope="col" className="rs-num">
-                % do faturamento
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {visible.map((row) => (
-              <tr key={row.codigo}>
-                <th scope="row">
-                  {titleCase(row.produto)}
-                  <small className="rs-code">
-                    {row.codigo.replace(/^0+/, "")}
-                  </small>
-                </th>
-                <td className="rs-num">{money(row.faturamento)}</td>
-                <td className="rs-num">
-                  {formatQuantity(row.qtd, row.unidade)}
-                </td>
-                <td className="rs-num">{integer(row.vendas)}</td>
-                <td className="rs-num">
-                  {money(row.preco)}
-                  <small className="rs-code">
-                    /{row.unidade.toLowerCase()}
-                  </small>
-                </td>
-                <td className="rs-num">
-                  {percent(share(row.faturamento, data.resumo.faturamento))}
-                </td>
-              </tr>
-            ))}
-            {!visible.length && (
-              <tr>
-                <td colSpan={6} className="rs-empty-row">
-                  Nenhum produto encontrado entre os {data.produtos.length} que
-                  mais faturaram.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-      <div className="rs-table-footer">
-        <span>
-          Quantidade em kg recalculada pelo valor ÷ preço (o relatório arredonda
-          o peso). Vendas = vezes que o item foi registrado.
-        </span>
-        {!query && rows.length > 15 && (
-          <button
-            className="text-button"
-            onClick={() => setExpanded((value) => !value)}
-          >
-            {expanded
-              ? "Mostrar só os 15 primeiros"
-              : `Mostrar todos os ${rows.length}`}
-          </button>
-        )}
-      </div>
     </section>
   );
 }

@@ -19,6 +19,13 @@ Indicadores: faturamento, pedidos, **ticket médio**, itens por pedido (com comp
 
 O chat (só admin) responde com a ferramenta `getRealSales` (somente leitura), que chama a mesma função do banco; o navegador envia apenas o histórico da conversa. Só totais vão para a Groq, sem dados de clientes. Sem custos ou estoque nos dados, a IA não calcula lucro nem margem.
 
+## Abas
+
+- **Visão geral**: a história do período em capítulos (como foi, quando a loja vende, como o cliente compra, o que mais vende), com o resumo da Cifrai no topo.
+- **Produtos** (`/api/produtos`, função `painel_produtos`): curva ABC, em alta/em queda contra o período anterior, pararam de vender, novidades e tabela completa. A ficha de cada produto (`/api/produtos/[codigo]`, `produto_detalhe`) mostra ritmo, horários, preços praticados, penetração, ticket de quem leva e o que é comprado junto (confiança e lift).
+- **Insights da Cifrai** (`/api/insights`): o servidor monta um pacote com os números reais (vendas, ABC, altas/quedas, pares de `cestas_compras`), a Groq devolve JSON validado por zod (manchete, resumo, 4–7 insights com evidência e ação, perguntas) e o resultado fica em `app.insights`. Períodos fechados reaproveitam a análise; os que incluem hoje são refeitos a cada 3 h. "Gerar de novo" é só para admin (6/h por usuário, 30/h por instância).
+- **Conversar com a Cifrai**: chat com a ferramenta `getRealSales`; os cartões de insight abrem o chat com a pergunta.
+
 ## Login e perfis
 
 Usuários ficam no Supabase (`app.usuarios`, fora da API), com senha em hash **scrypt** (N=2^17). O servidor busca o usuário pela função `auth_usuario` (só `service_role`), compara o hash em tempo constante (inclusive para usuário inexistente) e grava uma sessão em cookie assinado (HMAC, 8 h, `httpOnly`, `secure`, `SameSite=Lax`). O login limita 5 erros por IP e 20 por usuário a cada 15 min (por instância).

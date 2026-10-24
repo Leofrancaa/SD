@@ -353,3 +353,186 @@ export function serieCsv(pontos: Ponto[]) {
     );
   return `﻿${lines.join("\n")}\n`;
 }
+
+// ---------------------------------------------------------------------------
+// Produtos
+// ---------------------------------------------------------------------------
+export type ProdutoLinha = {
+  codigo: string;
+  produto: string;
+  unidade: string;
+  qtd: number;
+  faturamento: number;
+  vendas: number;
+  dias_vendidos: number;
+  ultima_venda: string | null;
+  qtd_anterior: number;
+  faturamento_anterior: number;
+};
+
+export type PainelProdutos = {
+  periodo: {
+    ini: string;
+    fim: string;
+    dias: number;
+    ant_ini: string;
+    ant_fim: string;
+    situacao: Situacao;
+  };
+  totais: {
+    faturamento: number;
+    faturamento_anterior: number;
+    pedidos: number;
+    pedidos_anterior: number;
+  };
+  produtos: ProdutoLinha[];
+};
+
+export type ProdutoDetalhe = {
+  codigo: string;
+  produto: string | null;
+  unidade: string | null;
+  periodo: { ini: string; fim: string; dias: number; situacao: Situacao };
+  resumo: {
+    faturamento: number;
+    qtd: number;
+    vendas: number;
+    pedidos_com: number;
+    total_pedidos: number;
+    preco_min: number | null;
+    preco_max: number | null;
+    primeira_venda: string | null;
+    ultima_venda: string | null;
+  };
+  ticket: { com: number | null; sem: number | null };
+  serie: { data: string; qtd: number; faturamento: number; vendas: number }[];
+  semana_hora: {
+    dia_semana: number;
+    hora: number;
+    vendas: number;
+    qtd: number;
+  }[];
+  precos: { preco: number; vendas: number; de: string; ate: string }[];
+  juntos: {
+    codigo: string;
+    produto: string;
+    pedidos: number;
+    confianca: number;
+    lift: number | null;
+  }[];
+};
+
+export type Cesta = {
+  a: string;
+  b: string;
+  pedidos: number;
+  suporte: number;
+  conf_a_b: number;
+  conf_b_a: number;
+  lift: number;
+};
+
+export type Classe = "A" | "B" | "C";
+
+/** Curva ABC por faturamento: A até 80%, B até 95%, C o resto. */
+export function abc(produtos: ProdutoLinha[]) {
+  const vendidos = produtos
+    .filter((item) => item.faturamento > 0)
+    .sort((a, b) => b.faturamento - a.faturamento);
+  const total = vendidos.reduce((sum, item) => sum + item.faturamento, 0);
+  const classes = new Map<string, Classe>();
+  let acumulado = 0;
+  for (const item of vendidos) {
+    const antes = total ? acumulado / total : 0;
+    classes.set(item.codigo, antes < 0.8 ? "A" : antes < 0.95 ? "B" : "C");
+    acumulado += item.faturamento;
+  }
+  const resumo = (["A", "B", "C"] as Classe[]).map((classe) => {
+    const itens = vendidos.filter(
+      (item) => classes.get(item.codigo) === classe,
+    );
+    const faturamento = itens.reduce((sum, item) => sum + item.faturamento, 0);
+    return {
+      classe,
+      produtos: itens.length,
+      faturamento,
+      shareFaturamento: total ? (faturamento / total) * 100 : 0,
+      shareProdutos: vendidos.length
+        ? (itens.length / vendidos.length) * 100
+        : 0,
+    };
+  });
+  return { classes, resumo, vendidos: vendidos.length };
+}
+
+export type Movimento = ProdutoLinha & {
+  diferenca: number;
+  variacao: number | null;
+};
+
+/**
+ * Produtos que mais cresceram/caíram em reais. Ignora itens pequenos
+ * (menos de R$ 150 nos dois períodos) para não destacar ruído.
+ */
+export function movimentos(produtos: ProdutoLinha[], limite = 8) {
+  const relevantes: Movimento[] = produtos
+    .filter(
+      (item) => Math.max(item.faturamento, item.faturamento_anterior) >= 150,
+    )
+    .map((item) => ({
+      ...item,
+      diferenca: item.faturamento - item.faturamento_anterior,
+      variacao: variation(item.faturamento, item.faturamento_anterior),
+    }));
+  const alta = relevantes
+    .filter((item) => item.diferenca > 0 && item.faturamento_anterior > 0)
+    .sort((a, b) => b.diferenca - a.diferenca)
+    .slice(0, limite);
+  const queda = relevantes
+    .filter((item) => item.diferenca < 0 && item.faturamento > 0)
+    .sort((a, b) => a.diferenca - b.diferenca)
+    .slice(0, limite);
+  const parados = produtos
+    .filter(
+      (item) => item.faturamento === 0 && item.faturamento_anterior >= 100,
+    )
+    .sort((a, b) => b.faturamento_anterior - a.faturamento_anterior);
+  const novos = produtos
+    .filter(
+      (item) => item.faturamento_anterior === 0 && item.faturamento >= 100,
+    )
+    .sort((a, b) => b.faturamento - a.faturamento);
+  return { alta, queda, parados, novos };
+}
+
+// ---------------------------------------------------------------------------
+// Insights da IA
+// ---------------------------------------------------------------------------
+export type InsightTipo = "oportunidade" | "alerta" | "tendencia" | "destaque";
+
+export type Insight = {
+  tipo: InsightTipo;
+  impacto: "alto" | "medio" | "baixo";
+  titulo: string;
+  explicacao: string;
+  evidencia: string;
+  acao: string;
+};
+
+export type InsightsIA = {
+  manchete: string;
+  resumo: string;
+  insights: Insight[];
+  perguntas: string[];
+};
+
+export type RespostaInsights = {
+  conteudo: InsightsIA;
+  modelo: string;
+  gerado_em: string;
+  periodo: { ini: string; fim: string; situacao: Situacao };
+  base: { pedidos: number; faturamento: number };
+  cestas: Cesta[];
+  cestasPeriodo: { ini: string; fim: string };
+  podeGerar: boolean;
+};

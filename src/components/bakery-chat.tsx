@@ -46,7 +46,13 @@ const dayLabel = (date: string) =>
     timeZone: "UTC",
   }).format(new Date(`${date}T12:00:00Z`));
 
-export function BakeryChat({ active }: { active: boolean }) {
+export function BakeryChat({
+  active,
+  prefill,
+}: {
+  active: boolean;
+  prefill?: { text: string; nonce: number } | null;
+}) {
   const [entries, setEntries] = useState<ChatEntry[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -82,6 +88,18 @@ export function BakeryChat({ active }: { active: boolean }) {
     return () => controller.abort();
   }, [active]);
   useEffect(() => () => abortRef.current?.abort(), []);
+  // Pergunta vinda de outra tela ("Aprofundar com a Cifrai").
+  const handledPrefill = useRef(0);
+  useEffect(() => {
+    if (!prefill || !active || connection !== "ready") return;
+    if (handledPrefill.current === prefill.nonce) return;
+    handledPrefill.current = prefill.nonce;
+    const run = () => {
+      void send(prefill.text);
+    };
+    run();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefill, active, connection]);
 
   async function send(question: string, retry = false) {
     if (abortRef.current || !question.trim() || connection !== "ready") return;
