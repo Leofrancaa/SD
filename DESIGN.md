@@ -1,7 +1,7 @@
 ---
 version: alpha
 name: Superdeli
-description: A bakery and minimarket management desk informed by Superdeli's orange and charcoal storefront.
+description: A real-sales desk for a bakery and delicatessen, informed by Superdeli's orange and charcoal storefront.
 colors:
   primary: "#BD480C"
   accent: "#EAAA35"
@@ -57,8 +57,8 @@ pt-BR and BRL; date-only values are interpreted without UTC shifting. Business t
 
 ## Do and do not
 
-- Keep synthetic data and rule-based suggestion labels visible.
-- Calculate discarded loss at cost and show stockouts beside waste.
-- Require the owner's review before marking a recommendation approved.
-- Do not imply approved suggestions have changed production automatically.
-- Do not claim actual AI integration, actual revenue or financial improvement.
+- Show the data source (BMWeb) and when it was last imported.
+- Compare periods of the same length and say which period was used.
+- Keep pending (PENDENTE) orders visibly separate.
+- Do not claim profit, margin, waste or stock: the data has none of them.
+- Do not imply the assistant changed anything in the store or systems.

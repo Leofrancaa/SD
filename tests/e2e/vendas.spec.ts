@@ -83,7 +83,9 @@ test("vendas reais é a tela inicial e mostra o ticket médio", async ({
       name: "As vendas da Superdeli, de verdade.",
     }),
   ).toBeVisible();
-  await expect(page.getByText("Dados reais · BMWeb")).toBeVisible();
+  await expect(
+    page.locator(".topbar").getByText("Dados reais · BMWeb"),
+  ).toBeVisible();
   const ticket = page.locator(".metric", { hasText: "Ticket médio" });
   await expect(ticket.locator("strong")).toHaveText(/R\$\s25,00/);
   await expect(ticket).toContainText("25,0% vs.");
@@ -94,15 +96,9 @@ test("vendas reais é a tela inicial e mostra o ticket médio", async ({
   await page.getByRole("option", { name: "Este ano" }).click();
   await expect(page).toHaveURL(/vp=ano/);
   await expect.poll(() => pedidos.at(-1)).toMatch(/ini=\d{4}-01-01/);
-
-  // As telas de demonstração continuam marcadas como simuladas.
-  await page.getByRole("button", { name: "Visão geral", exact: true }).click();
-  await expect(
-    page.locator(".topbar").getByText("Dados sintéticos"),
-  ).toBeVisible();
 });
 
 test("sem banco configurado a tela explica o que falta", async ({ page }) => {
-  await page.goto("/?view=vendas");
+  await page.goto("/");
   await expect(page.locator(".rs-error")).toContainText("SUPABASE_SECRET_KEY");
 });
