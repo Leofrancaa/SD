@@ -8,7 +8,7 @@ export const metadata: Metadata = { title: "Entrar · Superdeli" };
 
 export default async function LoginPage() {
   const session = await getSession();
-  if (session) redirect(session.role === "admin" ? "/" : "/?view=inventory");
+  if (session) redirect("/");
   return (
     <main className="login-shell">
       <section className="panel login-card" aria-labelledby="login-title">

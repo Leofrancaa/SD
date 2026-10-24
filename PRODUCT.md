@@ -12,20 +12,20 @@ Next.js App Router, TypeScript, Tailwind CSS, Vercel. GitHub: Leofrancaa/SD.
 
 ## Users
 
-The owner and staff of Superdeli, a bakery and minimarket in Conceição do Jacuípe, Bahia, as provided by the user. The demonstration covers five bakery products and nine resale products, including grocery, frozen food and deli packs confirmed by the user.
+The owner and managers of Superdeli, a bakery and delicatessen in Conceição do Jacuípe, Bahia, as provided by the user.
 
 ## Product Purpose
 
-Record production, sales, leftovers and stockouts. Explain sales patterns to help the owner reduce waste without increasing shortages. Calculate discarded losses at production cost. Every recommendation requires the owner's decision. Help the owner prioritize losses, shortages and idle stock, review a purchase draft, and print a concise operating report. Purchase quantities and prices are illustrative; exports do not place orders.
+Show the owner how the business actually sells: revenue, orders, average ticket, items per order, daily rhythm, busiest weekdays and hours, ticket bands, payment methods and best-selling products, compared with the previous period. A chat assistant explains the same real numbers in plain language. Every suggestion is the owner's decision.
 
 ## Constraints
 
-The "Vendas reais" screen shows actual point-of-sale orders imported from the BMWeb ERP into Supabase (read-only, server-side, authenticated users only). Every other screen uses deterministic synthetic data, never actual business results, and is labelled as a demonstration. Demo changes persist only in the current browser. The user authorized a Groq-powered chat using current browser records. Server-calculated reports ground all answers, and a read-only tool can query dates in the available history. Suggestions outside the chat remain rule-based. Unconfirmed branding, opening hours, prices and product catalog remain illustrative. Chat never executes production or purchasing decisions.
+All figures are real point-of-sale orders imported from the BMWeb ERP into Supabase (read-only, server-side, authenticated users only). The data has no costs, stock, production or customer details, so the product never claims profit, margin, waste or stock levels. Orders marked PENDENTE are shown separately until the owner confirms how they should count.
 
 ## Evidence
 
-The user's pilot brief and business name/location are authoritative. User-provided business reference: https://share.google/VlsagZETqHtwkexrH.
+The user's brief, the BMWeb "Pedidos por Período Analítico" reports and the business name/location are authoritative.
 
 ## Open Decisions
 
-The user explicitly requested Brazilian Portuguese for the interface. Code and documentation remain English. No standalone logo was supplied. Use an original text wordmark; orange, wheat yellow and charcoal are grounded in the public storefront photo. Catalog, operating hours, real records and production workflows await user evidence.
+Interface in Brazilian Portuguese; code and documentation may be English. No standalone logo was supplied: original text wordmark with orange, wheat yellow and charcoal from the public storefront. Whether PENDENTE orders count as sales and whether both stores appear in the BMWeb report await confirmation from the owner.

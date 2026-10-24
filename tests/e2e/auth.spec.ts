@@ -28,7 +28,7 @@ test("sem login redireciona para /login e rejeita senha errada", async ({
 test("admin vê todo o menu", async ({ page }) => {
   await login(page, "admin", "admin-e2e");
   const nav = page.getByRole("navigation", { name: "Menu principal" });
-  await expect(nav.getByRole("button")).toHaveCount(11);
+  await expect(nav.getByRole("button")).toHaveCount(2);
   await expect(
     page.getByRole("heading", {
       level: 1,
@@ -38,20 +38,25 @@ test("admin vê todo o menu", async ({ page }) => {
   await expect(page.getByText("Administrador")).toBeVisible();
 });
 
-test("gerência vê só o estoque e não acessa o chat", async ({ page }) => {
+test("gerência vê só as vendas e não acessa o chat", async ({ page }) => {
   await login(page, "gerencia", "gerencia-e2e");
   const nav = page.getByRole("navigation", { name: "Menu principal" });
   await expect(nav.getByRole("button")).toHaveCount(1);
-  await expect(nav).toContainText("Estoque e reposição");
+  await expect(nav).toContainText("Vendas");
   await expect(
-    page.getByRole("heading", { level: 1, name: "Estoque e reposição" }),
+    page.getByRole("heading", {
+      level: 1,
+      name: "As vendas da Superdeli, de verdade.",
+    }),
   ).toBeVisible();
-  await expect(page.getByRole("button", { name: "Exportar" })).toHaveCount(0);
 
-  // URL direta para outra tela cai no estoque.
-  await page.goto("/?view=overview");
+  // URL direta para o chat cai nas vendas.
+  await page.goto("/?view=chat");
   await expect(
-    page.getByRole("heading", { level: 1, name: "Estoque e reposição" }),
+    page.getByRole("heading", {
+      level: 1,
+      name: "As vendas da Superdeli, de verdade.",
+    }),
   ).toBeVisible();
 
   const status = await page.evaluate(async () => {

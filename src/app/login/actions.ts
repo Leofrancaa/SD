@@ -72,7 +72,7 @@ export async function login(
     createToken(user.role, Date.now(), { sub: user.sub, nome: user.nome }),
     sessionCookieOptions,
   );
-  redirect(user.role === "admin" ? "/" : "/?view=inventory");
+  redirect("/");
 }
 
 export async function logout() {
