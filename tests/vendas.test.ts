@@ -6,7 +6,10 @@ import {
   highlights,
   hourGrid,
   isIsoDate,
+  presetOptions,
+  comparisonName,
   presetRange,
+  isPreset,
   variation,
   weekdayStats,
   type PainelVendas,
@@ -191,4 +194,45 @@ test("limite de tentativas bloqueia e libera após a janela", () => {
   limiter.fail("outro", 0);
   limiter.reset("outro");
   assert.equal(limiter.blocked("outro", 1), false);
+});
+
+test("filtro tem cada ano desde 2025; ano fechado vai de 1/1 a 31/12", () => {
+  const today = "2026-10-24";
+  const anos = presetOptions(today).filter((o) => o.value.startsWith("ano"));
+  assert.deepEqual(anos, [
+    { value: "ano", label: "2026 (até hoje)" },
+    { value: "ano-2025", label: "2025" },
+  ]);
+  assert.deepEqual(presetRange("ano-2025", today), {
+    ini: "2025-01-01",
+    fim: "2025-12-31",
+  });
+  assert.ok(isPreset("ano-2025"));
+  assert.ok(!isPreset("ano-2024"));
+  assert.ok(!isPreset("ano-20x5"));
+});
+
+test("nome do período de comparação acompanha o que o banco escolheu", () => {
+  const c = (ini: string, fim: string, ant_ini: string, ant_fim: string) =>
+    comparisonName({ ini, fim, ant_ini, ant_fim });
+  assert.equal(
+    c("2026-10-01", "2026-10-24", "2026-09-01", "2026-09-24"),
+    "os mesmos dias de setembro",
+  );
+  assert.equal(
+    c("2026-01-01", "2026-10-24", "2025-01-01", "2025-10-24"),
+    "o mesmo período de 2025",
+  );
+  assert.equal(
+    c("2026-01-01", "2026-01-24", "2025-12-01", "2025-12-24"),
+    "os mesmos dias de dezembro",
+  );
+  assert.equal(
+    c("2026-09-25", "2026-10-24", "2026-08-26", "2026-09-24"),
+    "os 30 dias anteriores",
+  );
+  assert.equal(
+    c("2026-10-24", "2026-10-24", "2026-10-23", "2026-10-23"),
+    "o dia anterior",
+  );
 });

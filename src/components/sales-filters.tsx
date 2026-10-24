@@ -9,7 +9,7 @@ import type { SalesFilters } from "@/lib/use-sales-filters";
 import {
   daysBetween,
   isIsoDate,
-  presetLabels,
+  presetOptions,
   situacaoLabels,
   type Preset,
   type Situacao,
@@ -37,10 +37,7 @@ export function SalesToolbar({
           ariaLabel="Período"
           size="compact"
           value={preset}
-          options={(Object.keys(presetLabels) as Preset[]).map((key) => ({
-            value: key,
-            label: presetLabels[key],
-          }))}
+          options={presetOptions(today)}
           onValueChange={(value) => filters.setPreset(value as Preset)}
         />
       </div>

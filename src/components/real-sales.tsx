@@ -44,6 +44,7 @@ import {
   weekdayStats,
   type PainelVendas,
   type Ponto,
+  comparisonName,
 } from "@/lib/vendas";
 
 export type NavTarget = "produtos" | "insights" | "chat";
@@ -207,7 +208,7 @@ function Story({
 
   const c1 = `${money(resumo.faturamento)} em ${integer(resumo.pedidos)} pedidos${
     fatVar !== null
-      ? `, ${signedPercent(fatVar)} contra o período anterior`
+      ? `, ${signedPercent(fatVar)} contra ${comparisonName(data.periodo)}`
       : ""
   }.${melhorDia && data.serie.length > 1 ? ` Melhor dia: ${dateBr(melhorDia.data, { weekday: "long", day: "2-digit", month: "2-digit" })} (${moneyShort(melhorDia.faturamento)}).` : ""}${incompleteDay ? " Hoje ainda está em andamento." : ""}`;
   const c2 =

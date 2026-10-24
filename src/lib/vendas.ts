@@ -113,7 +113,7 @@ export function daysBetween(start: string, end: string) {
   );
 }
 
-export type Preset =
+export type FixedPreset =
   | "hoje"
   | "ontem"
   | "7d"
@@ -123,7 +123,14 @@ export type Preset =
   | "ano"
   | "personalizado";
 
-export const presetLabels: Record<Preset, string> = {
+/** Ano fechado (ou o ano atual até hoje): "ano-2025". */
+export type YearPreset = `ano-${number}`;
+export type Preset = FixedPreset | YearPreset;
+
+/** Primeiro ano com dados importados do BMWeb. */
+export const FIRST_YEAR = 2025;
+
+export const presetLabels: Record<FixedPreset, string> = {
   hoje: "Hoje",
   ontem: "Ontem",
   "7d": "Últimos 7 dias",
@@ -135,7 +142,30 @@ export const presetLabels: Record<Preset, string> = {
 };
 
 export function isPreset(value: unknown): value is Preset {
-  return typeof value === "string" && value in presetLabels;
+  if (typeof value !== "string") return false;
+  if (value in presetLabels) return true;
+  return /^ano-\d{4}$/.test(value) && Number(value.slice(4)) >= FIRST_YEAR;
+}
+
+/** Opções do filtro: períodos fixos e cada ano desde FIRST_YEAR (mais recente primeiro). */
+export function presetOptions(
+  today: string,
+): { value: Preset; label: string }[] {
+  const year = Number(today.slice(0, 4));
+  const years: { value: Preset; label: string }[] = [];
+  for (let y = year; y >= FIRST_YEAR; y--)
+    years.push({
+      value: y === year ? "ano" : `ano-${y}`,
+      label: y === year ? `${y} (até hoje)` : String(y),
+    });
+  const fixed = (
+    ["hoje", "ontem", "7d", "30d", "mes", "mes-anterior"] as const
+  ).map((value) => ({ value, label: presetLabels[value] }));
+  return [
+    ...fixed,
+    ...years,
+    { value: "personalizado", label: presetLabels.personalizado },
+  ];
 }
 
 export function presetRange(
@@ -162,7 +192,55 @@ export function presetRange(
     }
     case "ano":
       return { ini: `${today.slice(0, 4)}-01-01`, fim: today };
+    default: {
+      const year = preset.slice(4);
+      const fim = `${year}-12-31`;
+      return { ini: `${year}-01-01`, fim: fim < today ? fim : today };
+    }
   }
+}
+
+const MESES = [
+  "janeiro",
+  "fevereiro",
+  "março",
+  "abril",
+  "maio",
+  "junho",
+  "julho",
+  "agosto",
+  "setembro",
+  "outubro",
+  "novembro",
+  "dezembro",
+];
+
+/**
+ * Nome do período de comparação escolhido pelo banco (staging.periodo_anterior):
+ * mesmos dias do mês passado, mesmo período do ano passado ou os N dias antes.
+ */
+export function comparisonName(periodo: {
+  ini: string;
+  fim: string;
+  ant_ini: string;
+  ant_fim: string;
+}) {
+  const { ini, fim, ant_ini } = periodo;
+  if (
+    ini !== fim &&
+    ini.endsWith("-01-01") &&
+    ant_ini === `${Number(ini.slice(0, 4)) - 1}-01-01`
+  )
+    return `o mesmo período de ${ant_ini.slice(0, 4)}`;
+  if (
+    ini !== fim &&
+    ini.endsWith("-01") &&
+    ant_ini.endsWith("-01") &&
+    ant_ini.slice(0, 7) === shiftDate(ini, -1).slice(0, 7)
+  )
+    return `os mesmos dias de ${MESES[Number(ant_ini.slice(5, 7)) - 1]}`;
+  const dias = daysBetween(ini, fim);
+  return dias === 1 ? "o dia anterior" : `os ${dias} dias anteriores`;
 }
 
 /** Variação percentual; null quando não há base de comparação. */
@@ -296,7 +374,7 @@ export function highlights(data: PainelVendas, comparar: boolean): string[] {
   const ticketVar = variation(resumo.ticket_medio, anterior.ticket_medio);
   out.push(
     comparar && ticketVar !== null
-      ? `Ticket médio de ${brl(resumo.ticket_medio)}, ${pct(Math.abs(ticketVar))} ${ticketVar >= 0 ? "acima" : "abaixo"} do período anterior (${brl(anterior.ticket_medio)}).`
+      ? `Ticket médio de ${brl(resumo.ticket_medio)}, ${pct(Math.abs(ticketVar))} ${ticketVar >= 0 ? "acima" : "abaixo"} de ${comparisonName(data.periodo)} (${brl(anterior.ticket_medio)}).`
       : `Ticket médio de ${brl(resumo.ticket_medio)} em ${resumo.pedidos.toLocaleString("pt-BR")} pedidos.`,
   );
 

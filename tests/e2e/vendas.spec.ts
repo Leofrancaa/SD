@@ -96,9 +96,16 @@ test("vendas reais é a tela inicial e mostra o ticket médio", async ({
   ).toBeVisible();
 
   await page.getByRole("combobox", { name: "Período" }).click();
-  await page.getByRole("option", { name: "Este ano" }).click();
+  await page.getByRole("option", { name: /\(até hoje\)/ }).click();
   await expect(page).toHaveURL(/vp=ano/);
   await expect.poll(() => pedidos.at(-1)).toMatch(/ini=\d{4}-01-01/);
+
+  await page.getByRole("combobox", { name: "Período" }).click();
+  await page.getByRole("option", { name: "2025", exact: true }).click();
+  await expect(page).toHaveURL(/vp=ano-2025/);
+  await expect
+    .poll(() => pedidos.at(-1))
+    .toMatch(/ini=2025-01-01&fim=2025-12-31/);
 });
 
 test("sem banco configurado a tela explica o que falta", async ({ page }) => {

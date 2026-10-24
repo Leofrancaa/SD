@@ -89,6 +89,9 @@ begin
     raise exception 'remocao suspeita: % de % pedidos do periodo sumiriam', v_removidos, v_existentes;
   end if;
 
+  -- Resumos diários do painel (006_resumos.sql) para o período recebido.
+  perform staging.atualizar_resumos(p_empresa, p_periodo_ini, p_periodo_fim);
+
   insert into staging.ingest_log (sha256, empresa_id, arquivo, periodo_ini, periodo_fim, pedidos, itens, total)
   values (p_sha256, p_empresa, p_arquivo, p_periodo_ini, p_periodo_fim, v_pedidos, v_itens, v_total);
 
