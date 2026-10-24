@@ -42,7 +42,7 @@ test("chat responde com Markdown, envia só o histórico e mantém a conversa ao
   await expect(
     page.locator('.chat-markdown [data-streamdown="strong"]').first(),
   ).toHaveText("ticket médio");
-  await page.getByRole("button", { name: "Vendas", exact: true }).click();
+  await page.getByRole("button", { name: "Visão geral", exact: true }).click();
   await page
     .getByRole("button", { name: "Conversar com a Cifrai", exact: true })
     .click();

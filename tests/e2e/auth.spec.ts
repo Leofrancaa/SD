@@ -28,7 +28,7 @@ test("sem login redireciona para /login e rejeita senha errada", async ({
 test("admin vê todo o menu", async ({ page }) => {
   await login(page, "admin", "admin-e2e");
   const nav = page.getByRole("navigation", { name: "Menu principal" });
-  await expect(nav.getByRole("button")).toHaveCount(2);
+  await expect(nav.getByRole("button")).toHaveCount(4);
   await expect(
     page.getByRole("heading", {
       level: 1,
@@ -38,11 +38,13 @@ test("admin vê todo o menu", async ({ page }) => {
   await expect(page.getByText("Administrador")).toBeVisible();
 });
 
-test("gerência vê só as vendas e não acessa o chat", async ({ page }) => {
+test("gerência vê vendas, produtos e insights, sem o chat", async ({
+  page,
+}) => {
   await login(page, "gerencia", "gerencia-e2e");
   const nav = page.getByRole("navigation", { name: "Menu principal" });
-  await expect(nav.getByRole("button")).toHaveCount(1);
-  await expect(nav).toContainText("Vendas");
+  await expect(nav.getByRole("button")).toHaveCount(3);
+  await expect(nav).not.toContainText("Conversar");
   await expect(
     page.getByRole("heading", {
       level: 1,

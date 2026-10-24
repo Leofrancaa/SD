@@ -90,7 +90,10 @@ test("vendas reais é a tela inicial e mostra o ticket médio", async ({
   await expect(ticket.locator("strong")).toHaveText(/R\$\s25,00/);
   await expect(ticket).toContainText("25,0% vs.");
   await expect(page.getByText("Movimento por dia e horário")).toBeVisible();
-  await expect(page.getByRole("rowheader", { name: /^Pao/ })).toBeVisible();
+  await expect(page.locator(".rs-top-strip")).toContainText("Pao");
+  await expect(
+    page.getByRole("heading", { name: "Quando a loja vende" }),
+  ).toBeVisible();
 
   await page.getByRole("combobox", { name: "Período" }).click();
   await page.getByRole("option", { name: "Este ano" }).click();

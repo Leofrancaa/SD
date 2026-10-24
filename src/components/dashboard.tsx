@@ -3,20 +3,23 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
-  BadgeDollarSign,
   ChevronRight,
+  LayoutDashboard,
   LogOut,
   MessageCircle,
+  Package,
   Sparkles,
   Wheat,
   type LucideIcon,
 } from "lucide-react";
 import { BakeryChat } from "./bakery-chat";
+import { InsightsView } from "./insights-view";
+import { ProductsView } from "./products-view";
 import { RealSales } from "./real-sales";
 import { canAccess, roleLabels, type Role } from "@/lib/roles";
 import { logout } from "@/app/login/actions";
 
-type View = "vendas" | "chat";
+type View = "vendas" | "produtos" | "insights" | "chat";
 
 const navigation: {
   id: View;
@@ -27,11 +30,27 @@ const navigation: {
 }[] = [
   {
     id: "vendas",
-    title: "Vendas",
+    title: "Visão geral",
     heading: "As vendas da Superdeli, de verdade.",
     description:
-      "Pedidos, faturamento e ticket médio direto do caixa (BMWeb), atualizados ao longo do dia.",
-    icon: BadgeDollarSign,
+      "A história do período em capítulos: como foi, quando a loja vende, como o cliente compra e o que mais vende. Direto do caixa (BMWeb).",
+    icon: LayoutDashboard,
+  },
+  {
+    id: "produtos",
+    title: "Produtos",
+    heading: "Produtos",
+    description:
+      "Quem sustenta o faturamento, o que está subindo ou caindo e a ficha completa de cada item.",
+    icon: Package,
+  },
+  {
+    id: "insights",
+    title: "Insights da Cifrai",
+    heading: "Insights da Cifrai",
+    description:
+      "A inteligência artificial lê as vendas reais e aponta oportunidades, alertas e combos para testar.",
+    icon: Sparkles,
   },
   {
     id: "chat",
@@ -54,6 +73,10 @@ export function Dashboard({
   const home = allowed[0].id;
   const [view, setView] = useState<View>(home);
   const [message, setMessage] = useState("");
+  const [prefill, setPrefill] = useState<{
+    text: string;
+    nonce: number;
+  } | null>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const current = navigation.find((item) => item.id === view)!;
 
@@ -88,6 +111,14 @@ export function Dashboard({
     window.scrollTo({ top: 0, behavior: "instant" });
     requestAnimationFrame(() => headingRef.current?.focus());
   }
+
+  // "Aprofundar com a Cifrai": abre o chat já com a pergunta.
+  const ask = canAccess(role, "chat")
+    ? (text: string) => {
+        setPrefill((current) => ({ text, nonce: (current?.nonce ?? 0) + 1 }));
+        navigate("chat");
+      }
+    : undefined;
 
   return (
     <div className="app-shell">
@@ -178,11 +209,20 @@ export function Dashboard({
             {message}
           </div>
 
-          {view === "vendas" && <RealSales onMessage={setMessage} />}
+          {view === "vendas" && (
+            <RealSales
+              onMessage={setMessage}
+              onNavigate={navigate}
+              onAsk={ask}
+              canInsights={canAccess(role, "insights")}
+            />
+          )}
+          {view === "produtos" && <ProductsView onMessage={setMessage} />}
+          {view === "insights" && <InsightsView onAsk={ask} />}
 
           {canAccess(role, "chat") && (
             <div hidden={view !== "chat"}>
-              <BakeryChat active={view === "chat"} />
+              <BakeryChat active={view === "chat"} prefill={prefill} />
             </div>
           )}
 
