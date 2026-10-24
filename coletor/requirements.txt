@@ -1,0 +1,8 @@
+requests>=2.31
+beautifulsoup4>=4.12
+pymupdf>=1.24
+customtkinter>=5.2
+pystray>=0.19
+pillow>=10.0
+keyring>=24.0
+tzdata
