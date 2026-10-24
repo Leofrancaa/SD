@@ -17,7 +17,10 @@ export function LoginForm() {
           id="username"
           name="username"
           autoComplete="username"
-          placeholder="admin ou gerencia"
+          placeholder="Seu usuário"
+          autoCapitalize="none"
+          spellCheck={false}
+          maxLength={32}
           required
           aria-invalid={state?.error ? true : undefined}
         />

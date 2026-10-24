@@ -5,7 +5,7 @@ test("daily bars retain visible dimensions for every range on desktop and mobile
 }) => {
   for (const width of [1280, 390]) {
     await page.setViewportSize({ width, height: 900 });
-    await page.goto("/");
+    await page.goto("/?view=overview");
     for (const days of [7, 14, 30]) {
       await page
         .getByRole("button", { name: `${days} dias`, exact: true })
@@ -40,7 +40,7 @@ test("daily bars retain visible dimensions for every range on desktop and mobile
 test("analytics show rankings, weekday averages and production outcomes for the selected range", async ({
   page,
 }) => {
-  await page.goto("/");
+  await page.goto("/?view=overview");
   for (const title of [
     "Os favoritos do balcão",
     "Cada dia tem seu ritmo",
@@ -73,7 +73,7 @@ test("overview renders without browser errors and filters update URL and metrics
 }) => {
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
-  await page.goto("/");
+  await page.goto("/?view=overview");
   await expect(
     page.getByRole("heading", { name: "Sua Superdeli, por inteiro." }),
   ).toBeVisible();
@@ -97,7 +97,7 @@ test("overview renders without browser errors and filters update URL and metrics
 test("search supports no-results and clearing, and navigation restores focus", async ({
   page,
 }) => {
-  await page.goto("/");
+  await page.goto("/?view=overview");
   await page.getByRole("button", { name: "Produtos", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Produtos", exact: true }),
@@ -120,7 +120,7 @@ test("search supports no-results and clearing, and navigation restores focus", a
 test("daily record validates conservation, persists and updates totals", async ({
   page,
 }) => {
-  await page.goto("/");
+  await page.goto("/?view=overview");
   await page
     .getByRole("button", { name: "Registrar dia", exact: true })
     .click();
@@ -174,7 +174,7 @@ test("recommendation approval persists without modifying production", async ({
 });
 
 test("CSV export downloads the selected range", async ({ page }) => {
-  await page.goto("/?days=14");
+  await page.goto("/?view=overview&days=14");
   const downloadPromise = page.waitForEvent("download");
   await page.getByRole("button", { name: "Exportar", exact: true }).click();
   const download = await downloadPromise;
@@ -212,7 +212,7 @@ test("mobile, keyboard controls and reduced motion remain usable", async ({
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.emulateMedia({ reducedMotion: "reduce" });
-  await page.goto("/");
+  await page.goto("/?view=overview");
   await page.keyboard.press("Tab");
   await expect(
     page.getByRole("link", { name: "Ir para o conteúdo" }),

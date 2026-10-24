@@ -1,0 +1,355 @@
+// Vendas reais (BMWeb → Supabase). Tipos e cálculos puros, usados no navegador
+// e no servidor. Sem segredos aqui.
+
+export type Situacao = "todas" | "finalizado" | "pendente";
+
+export type Totais = {
+  faturamento: number;
+  pedidos: number;
+  ticket_medio: number;
+  itens: number;
+};
+
+export type PainelVendas = {
+  periodo: {
+    ini: string;
+    fim: string;
+    dias: number;
+    ant_ini: string;
+    ant_fim: string;
+    situacao: Situacao;
+  };
+  base: {
+    primeiro_dia: string | null;
+    ultimo_dia: string | null;
+    ultimo_pedido: string | null; // "AAAA-MM-DDTHH:MM:SS", horário local da loja
+  };
+  atualizado_em: string | null; // ISO com fuso
+  resumo: Totais & { dias_com_venda: number };
+  anterior: Totais;
+  situacoes: { situacao: string; pedidos: number; faturamento: number }[];
+  serie: { data: string; pedidos: number; faturamento: number }[];
+  semana_hora: {
+    dia_semana: number; // 1 = segunda … 7 = domingo
+    hora: number;
+    pedidos: number;
+    faturamento: number;
+    ocorrencias: number; // quantas vezes esse dia da semana aparece no período
+  }[];
+  dias_semana: { dia_semana: number; ocorrencias: number }[];
+  produtos: {
+    codigo: string;
+    produto: string;
+    unidade: string;
+    qtd: number;
+    faturamento: number;
+    vendas: number;
+  }[];
+  produtos_distintos: number;
+  pagamentos: { forma: string; pedidos: number; faturamento: number }[];
+  faixas_ticket: { faixa: number; pedidos: number; faturamento: number }[];
+};
+
+export const situacaoLabels: Record<Situacao, string> = {
+  todas: "Todos os pedidos",
+  finalizado: "Só finalizados",
+  pendente: "Só pendentes",
+};
+
+export function isSituacao(value: unknown): value is Situacao {
+  return value === "todas" || value === "finalizado" || value === "pendente";
+}
+
+export const faixaLabels: Record<number, string> = {
+  1: "Até R$ 10",
+  2: "R$ 10 a 20",
+  3: "R$ 20 a 30",
+  4: "R$ 30 a 50",
+  5: "R$ 50 a 100",
+  6: "Acima de R$ 100",
+};
+
+export const weekdayShort = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
+export const weekdayLong = [
+  "segunda-feira",
+  "terça-feira",
+  "quarta-feira",
+  "quinta-feira",
+  "sexta-feira",
+  "sábado",
+  "domingo",
+];
+
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+export function isIsoDate(value: unknown): value is string {
+  if (typeof value !== "string" || !ISO_DATE.test(value)) return false;
+  const parsed = new Date(`${value}T12:00:00Z`);
+  return (
+    Number.isFinite(parsed.getTime()) &&
+    parsed.toISOString().slice(0, 10) === value
+  );
+}
+
+/** Data de hoje no fuso da loja (America/Sao_Paulo), em AAAA-MM-DD. */
+export function todayInStore(now = new Date()) {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo",
+  }).format(now);
+}
+
+export function shiftDate(date: string, days: number) {
+  const value = new Date(`${date}T12:00:00Z`);
+  value.setUTCDate(value.getUTCDate() + days);
+  return value.toISOString().slice(0, 10);
+}
+
+export function daysBetween(start: string, end: string) {
+  return (
+    Math.round(
+      (Date.parse(`${end}T12:00:00Z`) - Date.parse(`${start}T12:00:00Z`)) /
+        86400000,
+    ) + 1
+  );
+}
+
+export type Preset =
+  | "hoje"
+  | "ontem"
+  | "7d"
+  | "30d"
+  | "mes"
+  | "mes-anterior"
+  | "ano"
+  | "personalizado";
+
+export const presetLabels: Record<Preset, string> = {
+  hoje: "Hoje",
+  ontem: "Ontem",
+  "7d": "Últimos 7 dias",
+  "30d": "Últimos 30 dias",
+  mes: "Este mês",
+  "mes-anterior": "Mês passado",
+  ano: "Este ano",
+  personalizado: "Personalizado",
+};
+
+export function isPreset(value: unknown): value is Preset {
+  return typeof value === "string" && value in presetLabels;
+}
+
+export function presetRange(
+  preset: Exclude<Preset, "personalizado">,
+  today: string,
+): { ini: string; fim: string } {
+  switch (preset) {
+    case "hoje":
+      return { ini: today, fim: today };
+    case "ontem": {
+      const day = shiftDate(today, -1);
+      return { ini: day, fim: day };
+    }
+    case "7d":
+      return { ini: shiftDate(today, -6), fim: today };
+    case "30d":
+      return { ini: shiftDate(today, -29), fim: today };
+    case "mes":
+      return { ini: `${today.slice(0, 7)}-01`, fim: today };
+    case "mes-anterior": {
+      const first = `${today.slice(0, 7)}-01`;
+      const last = shiftDate(first, -1);
+      return { ini: `${last.slice(0, 7)}-01`, fim: last };
+    }
+    case "ano":
+      return { ini: `${today.slice(0, 4)}-01-01`, fim: today };
+  }
+}
+
+/** Variação percentual; null quando não há base de comparação. */
+export function variation(current: number, previous: number) {
+  if (!previous) return null;
+  return ((current - previous) / previous) * 100;
+}
+
+export type Granularidade = "dia" | "semana" | "mes";
+
+export type Ponto = {
+  key: string;
+  start: string;
+  end: string;
+  faturamento: number;
+  pedidos: number;
+  ticket: number;
+  dias: number;
+};
+
+/**
+ * Agrupa a série diária em dia/semana/mês conforme o tamanho do período.
+ * Dias sem venda entram como zero (até o último dia com dados), para o
+ * gráfico não esconder dias fechados.
+ */
+export function bucketSeries(
+  serie: PainelVendas["serie"],
+  ini: string,
+  fim: string,
+  ultimoDia: string | null,
+): { granularidade: Granularidade; pontos: Ponto[] } {
+  const dias = daysBetween(ini, fim);
+  const granularidade: Granularidade =
+    dias <= 45 ? "dia" : dias <= 200 ? "semana" : "mes";
+  const end = ultimoDia && ultimoDia < fim ? ultimoDia : fim;
+  const byDate = new Map(serie.map((row) => [row.data, row]));
+  const buckets = new Map<string, Ponto>();
+  for (let date = ini; date <= end; date = shiftDate(date, 1)) {
+    let key = date;
+    if (granularidade === "semana") {
+      const weekday = (new Date(`${date}T12:00:00Z`).getUTCDay() + 6) % 7;
+      key = shiftDate(date, -weekday);
+    } else if (granularidade === "mes") key = date.slice(0, 7);
+    const row = byDate.get(date);
+    const bucket = buckets.get(key) ?? {
+      key,
+      start: date,
+      end: date,
+      faturamento: 0,
+      pedidos: 0,
+      ticket: 0,
+      dias: 0,
+    };
+    bucket.end = date;
+    bucket.dias += 1;
+    bucket.faturamento += row?.faturamento ?? 0;
+    bucket.pedidos += row?.pedidos ?? 0;
+    buckets.set(key, bucket);
+  }
+  const pontos = [...buckets.values()].map((bucket) => ({
+    ...bucket,
+    faturamento: Math.round(bucket.faturamento * 100) / 100,
+    ticket: bucket.pedidos ? bucket.faturamento / bucket.pedidos : 0,
+  }));
+  return { granularidade, pontos };
+}
+
+/** Médias por dia da semana, divididas pelas ocorrências reais no período. */
+export function weekdayStats(data: PainelVendas) {
+  return weekdayShort.map((label, index) => {
+    const dia = index + 1;
+    const rows = data.semana_hora.filter((row) => row.dia_semana === dia);
+    const ocorrencias =
+      data.dias_semana.find((row) => row.dia_semana === dia)?.ocorrencias ?? 0;
+    const faturamento = rows.reduce((sum, row) => sum + row.faturamento, 0);
+    const pedidos = rows.reduce((sum, row) => sum + row.pedidos, 0);
+    return {
+      dia,
+      label,
+      ocorrencias,
+      faturamento,
+      pedidos,
+      mediaFaturamento: ocorrencias ? faturamento / ocorrencias : 0,
+      mediaPedidos: ocorrencias ? pedidos / ocorrencias : 0,
+      ticket: pedidos ? faturamento / pedidos : 0,
+    };
+  });
+}
+
+/** Grade dia da semana × hora com médias por ocorrência do dia. */
+export function hourGrid(data: PainelVendas) {
+  const hours = data.semana_hora.map((row) => row.hora);
+  if (!hours.length) return { horas: [] as number[], linhas: [] };
+  const min = Math.min(...hours);
+  const max = Math.max(...hours);
+  const horas = Array.from({ length: max - min + 1 }, (_, i) => min + i);
+  const linhas = weekdayShort.map((label, index) => {
+    const dia = index + 1;
+    const ocorrencias =
+      data.dias_semana.find((row) => row.dia_semana === dia)?.ocorrencias ?? 0;
+    return {
+      dia,
+      label,
+      celulas: horas.map((hora) => {
+        const row = data.semana_hora.find(
+          (item) => item.dia_semana === dia && item.hora === hora,
+        );
+        return {
+          hora,
+          pedidos: ocorrencias && row ? row.pedidos / ocorrencias : 0,
+          faturamento: ocorrencias && row ? row.faturamento / ocorrencias : 0,
+        };
+      }),
+    };
+  });
+  return { horas, linhas };
+}
+
+const pct = (value: number) => `${value.toFixed(1).replace(".", ",")}%`;
+const brl = (value: number) =>
+  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
+    value,
+  );
+
+/** Frases curtas e factuais sobre o período (sem previsões). */
+export function highlights(data: PainelVendas, comparar: boolean): string[] {
+  const out: string[] = [];
+  const { resumo, anterior } = data;
+  if (!resumo.pedidos) return out;
+
+  const ticketVar = variation(resumo.ticket_medio, anterior.ticket_medio);
+  out.push(
+    comparar && ticketVar !== null
+      ? `Ticket médio de ${brl(resumo.ticket_medio)}, ${pct(Math.abs(ticketVar))} ${ticketVar >= 0 ? "acima" : "abaixo"} do período anterior (${brl(anterior.ticket_medio)}).`
+      : `Ticket médio de ${brl(resumo.ticket_medio)} em ${resumo.pedidos.toLocaleString("pt-BR")} pedidos.`,
+  );
+
+  const grid = hourGrid(data);
+  let peak = { dia: 0, hora: 0, pedidos: 0 };
+  for (const linha of grid.linhas)
+    for (const celula of linha.celulas)
+      if (celula.pedidos > peak.pedidos)
+        peak = { dia: linha.dia, hora: celula.hora, pedidos: celula.pedidos };
+  if (peak.pedidos > 0)
+    out.push(
+      `Horário de maior movimento: ${weekdayLong[peak.dia - 1]}, das ${peak.hora}h às ${peak.hora + 1}h (média de ${Math.round(peak.pedidos)} pedidos nessa hora).`,
+    );
+
+  const top = data.produtos.slice(0, 10);
+  if (top.length >= 3 && resumo.faturamento > 0) {
+    const share =
+      (top.reduce((sum, item) => sum + item.faturamento, 0) /
+        resumo.faturamento) *
+      100;
+    out.push(
+      `Os ${top.length} produtos que mais faturam somam ${pct(share)} do faturamento, entre ${data.produtos_distintos.toLocaleString("pt-BR")} produtos vendidos.`,
+    );
+  }
+
+  const small = data.faixas_ticket
+    .filter((row) => row.faixa <= 2)
+    .reduce((sum, row) => sum + row.pedidos, 0);
+  if (resumo.pedidos >= 20)
+    out.push(
+      `${pct((small / resumo.pedidos) * 100)} dos pedidos ficam abaixo de R$ 20, uma oportunidade para combos e itens de acompanhamento.`,
+    );
+  return out;
+}
+
+export function formatQuantity(qtd: number, unidade: string) {
+  const unit = unidade.toUpperCase();
+  if (unit === "KG")
+    return `${qtd.toLocaleString("pt-BR", { maximumFractionDigits: qtd >= 100 ? 0 : 1 })} kg`;
+  return `${Math.round(qtd).toLocaleString("pt-BR")} ${unit.toLowerCase()}`;
+}
+
+export function serieCsv(pontos: Ponto[]) {
+  const lines = ["inicio;fim;pedidos;faturamento;ticket_medio"];
+  for (const ponto of pontos)
+    lines.push(
+      [
+        ponto.start,
+        ponto.end,
+        ponto.pedidos,
+        ponto.faturamento.toFixed(2).replace(".", ","),
+        ponto.ticket.toFixed(2).replace(".", ","),
+      ].join(";"),
+    );
+  return `﻿${lines.join("\n")}\n`;
+}

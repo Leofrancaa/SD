@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { Fragment, useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import {
   ArrowDownRight,
   ArrowRight,
   ArrowUpRight,
+  BadgeDollarSign,
   Check,
   Scale,
   CheckCheck,
@@ -73,6 +74,7 @@ import { StoreComparison } from "./store-comparison";
 import { YearHeatmap } from "./year-heatmap";
 import { AnalyticsCharts } from "./analytics-charts";
 import { BakeryChat } from "./bakery-chat";
+import { RealSales } from "./real-sales";
 import { OwnerBriefing } from "./owner-briefing";
 import { PurchasePlanner } from "./purchase-planner";
 import { OwnerReport } from "./owner-report";
@@ -89,6 +91,7 @@ import { logout } from "@/app/login/actions";
 // Limite de linhas na tabela de registros para manter a página leve no ano inteiro.
 const LEDGER_LIMIT = 200;
 type View =
+  | "vendas"
   | "purchases"
   | "report"
   | "inventory"
@@ -100,6 +103,7 @@ type View =
   | "stores"
   | "settings";
 const navigation: { id: View; title: string; icon: LucideIcon }[] = [
+  { id: "vendas", title: "Vendas reais", icon: BadgeDollarSign },
   { id: "overview", title: "Visão geral", icon: LayoutDashboard },
   { id: "stores", title: "Comparar lojas", icon: Store },
   { id: "production", title: "Produção e vendas", icon: ClipboardList },
@@ -112,7 +116,13 @@ const navigation: { id: View; title: string; icon: LucideIcon }[] = [
   { id: "settings", title: "Sobre o piloto", icon: Settings2 },
 ];
 
-export function Dashboard({ role }: { role: Role }) {
+export function Dashboard({
+  role,
+  userName,
+}: {
+  role: Role;
+  userName?: string;
+}) {
   const store = useDemoStore();
   // Menu e telas liberados para o perfil; a primeira é a tela inicial.
   const allowed = navigation.filter((item) => canAccess(role, item.id));
@@ -352,24 +362,32 @@ export function Dashboard({ role }: { role: Role }) {
         </div>
         <span className="nav-label">PADARIA E MINIMERCADO</span>
         <nav ref={navigationRef} aria-label="Menu principal">
-          {allowed.map(({ id, title, icon: Icon }) => (
-            <button
-              key={id}
-              className={`nav-item ${view === id ? "active" : ""}`}
-              aria-current={view === id ? "page" : undefined}
-              onClick={() => navigate(id)}
-            >
-              <Icon size={19} />
-              <span>{title}</span>
-              {id === "insights" && pending > 0 && (
-                <span
-                  className="nav-count"
-                  aria-label={`${pending} sugestões pendentes`}
-                >
-                  {pending}
-                </span>
-              )}
-            </button>
+          {allowed.map(({ id, title, icon: Icon }, index) => (
+            <Fragment key={id}>
+              {id !== "vendas" &&
+                (index === 0 || allowed[index - 1].id === "vendas") &&
+                allowed.some((item) => item.id === "vendas") && (
+                  <span className="nav-label nav-group-label">
+                    DEMONSTRAÇÃO · DADOS SIMULADOS
+                  </span>
+                )}
+              <button
+                className={`nav-item ${view === id ? "active" : ""}`}
+                aria-current={view === id ? "page" : undefined}
+                onClick={() => navigate(id)}
+              >
+                <Icon size={19} />
+                <span>{title}</span>
+                {id === "insights" && pending > 0 && (
+                  <span
+                    className="nav-count"
+                    aria-label={`${pending} sugestões pendentes`}
+                  >
+                    {pending}
+                  </span>
+                )}
+              </button>
+            </Fragment>
           ))}
         </nav>
         <div className="sidebar-bottom">
@@ -401,11 +419,22 @@ export function Dashboard({ role }: { role: Role }) {
             <span>{title}</span>
           </div>
           <div className="topbar-right">
-            <span className="demo-badge">
-              <span />
-              Dados sintéticos
+            {view === "vendas" ? (
+              <span className="demo-badge real-badge">
+                <span />
+                Dados reais · BMWeb
+              </span>
+            ) : (
+              <span className="demo-badge">
+                <span />
+                Dados sintéticos
+              </span>
+            )}
+            <span className="role-badge">
+              {userName && userName !== roleLabels[role]
+                ? `${userName} · ${roleLabels[role]}`
+                : roleLabels[role]}
             </span>
-            <span className="role-badge">{roleLabels[role]}</span>
             <form action={logout}>
               <button className="button secondary logout-button" type="submit">
                 <LogOut size={15} />
@@ -418,31 +447,37 @@ export function Dashboard({ role }: { role: Role }) {
           <div className="page-heading">
             <div>
               <h1 ref={headingRef} tabIndex={-1}>
-                {view === "overview" ? "Sua Superdeli, por inteiro." : title}
+                {view === "overview"
+                  ? "Sua Superdeli, por inteiro."
+                  : view === "vendas"
+                    ? "As vendas da Superdeli, de verdade."
+                    : title}
               </h1>
               <p>
-                {view === "overview"
-                  ? "Da fornada às prateleiras: vendas, produção e estoque em um só lugar."
-                  : view === "production"
-                    ? "Registre a produção da padaria e as entradas e vendas do minimercado."
-                    : view === "inventory"
-                      ? "Acompanhe as mercadorias, confira o giro e planeje as compras."
-                      : view === "products"
-                        ? "Compare o retorno da produção própria e dos itens de revenda."
-                        : view === "insights"
-                          ? "Os dados apontam caminhos. A decisão continua com você."
-                          : view === "purchases"
-                            ? "Transforme a reposição em uma lista para revisar com o fornecedor."
-                            : view === "report"
-                              ? "Os resultados e as prioridades, prontos para conversar e guardar."
-                              : view === "stores"
-                                ? "Onde cada loja ganha e perde dinheiro, lado a lado."
-                                : view === "chat"
-                                  ? "Pergunte, entenda os números e planeje seu próximo passo."
-                                  : "Uma base para começar pequeno e aprender com a rotina."}
+                {view === "vendas"
+                  ? "Pedidos, faturamento e ticket médio direto do caixa (BMWeb), atualizados ao longo do dia."
+                  : view === "overview"
+                    ? "Da fornada às prateleiras: vendas, produção e estoque em um só lugar."
+                    : view === "production"
+                      ? "Registre a produção da padaria e as entradas e vendas do minimercado."
+                      : view === "inventory"
+                        ? "Acompanhe as mercadorias, confira o giro e planeje as compras."
+                        : view === "products"
+                          ? "Compare o retorno da produção própria e dos itens de revenda."
+                          : view === "insights"
+                            ? "Os dados apontam caminhos. A decisão continua com você."
+                            : view === "purchases"
+                              ? "Transforme a reposição em uma lista para revisar com o fornecedor."
+                              : view === "report"
+                                ? "Os resultados e as prioridades, prontos para conversar e guardar."
+                                : view === "stores"
+                                  ? "Onde cada loja ganha e perde dinheiro, lado a lado."
+                                  : view === "chat"
+                                    ? "Pergunte, entenda os números e planeje seu próximo passo."
+                                    : "Uma base para começar pequeno e aprender com a rotina."}
               </p>
             </div>
-            {fullAccess && (
+            {fullAccess && view !== "vendas" && (
               <div className="heading-actions">
                 <button className="button secondary" onClick={exportRecords}>
                   <Download size={17} />
@@ -458,99 +493,101 @@ export function Dashboard({ role }: { role: Role }) {
               </div>
             )}
           </div>
-          <div className="period-row">
-            <div
-              className="period-picker"
-              role="group"
-              aria-label="Período de análise"
-            >
-              <div className="period-field">
-                <span aria-hidden="true">Loja</span>
-                <Select
-                  ariaLabel="Loja"
-                  size="compact"
-                  value={shop}
-                  options={[
-                    { value: "all", label: "Todas as lojas" },
-                    ...stores.map((item) => ({
-                      value: item.id,
-                      label: item.name,
-                    })),
-                  ]}
-                  onValueChange={(value) => {
-                    setShop(value);
-                    updateUrl({ shop: value });
-                  }}
-                />
+          {view !== "vendas" && (
+            <div className="period-row">
+              <div
+                className="period-picker"
+                role="group"
+                aria-label="Período de análise"
+              >
+                <div className="period-field">
+                  <span aria-hidden="true">Loja</span>
+                  <Select
+                    ariaLabel="Loja"
+                    size="compact"
+                    value={shop}
+                    options={[
+                      { value: "all", label: "Todas as lojas" },
+                      ...stores.map((item) => ({
+                        value: item.id,
+                        label: item.name,
+                      })),
+                    ]}
+                    onValueChange={(value) => {
+                      setShop(value);
+                      updateUrl({ shop: value });
+                    }}
+                  />
+                </div>
+                <div className="period-field">
+                  <span aria-hidden="true">Mês</span>
+                  <Select
+                    ariaLabel="Mês"
+                    size="compact"
+                    value={period.month === null ? "all" : String(period.month)}
+                    options={[
+                      { value: "all", label: "Ano inteiro" },
+                      ...availableMonths(period.year).map((month) => ({
+                        value: String(month),
+                        label: monthLabel(month).replace(/^./, (c) =>
+                          c.toUpperCase(),
+                        ),
+                      })),
+                    ]}
+                    onValueChange={(value) => {
+                      const next = {
+                        year: period.year,
+                        month: value === "all" ? null : Number(value),
+                      };
+                      setPeriod(next);
+                      updateUrl({ period: next });
+                    }}
+                  />
+                </div>
+                <div className="period-field">
+                  <span aria-hidden="true">Ano</span>
+                  <Select
+                    ariaLabel="Ano"
+                    size="compact"
+                    value={String(period.year)}
+                    options={availableYears().map((year) => ({
+                      value: String(year),
+                      label: String(year),
+                    }))}
+                    onValueChange={(value) => {
+                      const year = Number(value);
+                      const months = availableMonths(year);
+                      const next = {
+                        year,
+                        month:
+                          period.month === null
+                            ? null
+                            : months.includes(period.month)
+                              ? period.month
+                              : months.at(-1)!,
+                      };
+                      setPeriod(next);
+                      updateUrl({ period: next });
+                    }}
+                  />
+                </div>
               </div>
-              <div className="period-field">
-                <span aria-hidden="true">Mês</span>
-                <Select
-                  ariaLabel="Mês"
-                  size="compact"
-                  value={period.month === null ? "all" : String(period.month)}
-                  options={[
-                    { value: "all", label: "Ano inteiro" },
-                    ...availableMonths(period.year).map((month) => ({
-                      value: String(month),
-                      label: monthLabel(month).replace(/^./, (c) =>
-                        c.toUpperCase(),
-                      ),
-                    })),
-                  ]}
-                  onValueChange={(value) => {
-                    const next = {
-                      year: period.year,
-                      month: value === "all" ? null : Number(value),
-                    };
-                    setPeriod(next);
-                    updateUrl({ period: next });
-                  }}
-                />
-              </div>
-              <div className="period-field">
-                <span aria-hidden="true">Ano</span>
-                <Select
-                  ariaLabel="Ano"
-                  size="compact"
-                  value={String(period.year)}
-                  options={availableYears().map((year) => ({
-                    value: String(year),
-                    label: String(year),
-                  }))}
-                  onValueChange={(value) => {
-                    const year = Number(value);
-                    const months = availableMonths(year);
-                    const next = {
-                      year,
-                      month:
-                        period.month === null
-                          ? null
-                          : months.includes(period.month)
-                            ? period.month
-                            : months.at(-1)!,
-                    };
-                    setPeriod(next);
-                    updateUrl({ period: next });
-                  }}
-                />
-              </div>
+              <span className="date-range">
+                {dateLabel(bounds.start, {
+                  day: "2-digit",
+                  month: "short",
+                  year: "numeric",
+                })}{" "}
+                —{" "}
+                {dateLabel(bounds.end, {
+                  day: "2-digit",
+                  month: "short",
+                  year: "numeric",
+                })}
+              </span>
+              <span className="period-note">Período de demonstração</span>
             </div>
-            <span className="date-range">
-              {dateLabel(bounds.start, {
-                day: "2-digit",
-                month: "short",
-                year: "numeric",
-              })}{" "}
-              —{" "}
-              {dateLabel(bounds.end, {
-                day: "2-digit",
-                month: "short",
-                year: "numeric",
-              })}
-            </span>
-            <span className="period-note">Período de demonstração</span>
-          </div>
+          )}
           {store.error && (
             <p className="error-banner" role="alert">
               {store.error}
@@ -563,6 +600,8 @@ export function Dashboard({ role }: { role: Role }) {
           >
             {message}
           </div>
+
+          {view === "vendas" && <RealSales onMessage={setMessage} />}
 
           {view === "overview" && (
             <>
@@ -1187,7 +1226,11 @@ export function Dashboard({ role }: { role: Role }) {
               Superdeli <span className="footer-dot">·</span> Feito para a
               rotina da padaria e do minimercado.
             </span>
-            <span>Demonstração Cifrai · todos os valores são fictícios</span>
+            <span>
+              {view === "vendas"
+                ? "Cifrai · vendas reais importadas do BMWeb"
+                : "Demonstração Cifrai · todos os valores são fictícios"}
+            </span>
           </footer>
         </main>
       </div>

@@ -28,7 +28,13 @@ test("sem login redireciona para /login e rejeita senha errada", async ({
 test("admin vê todo o menu", async ({ page }) => {
   await login(page, "admin", "admin-e2e");
   const nav = page.getByRole("navigation", { name: "Menu principal" });
-  await expect(nav.getByRole("button")).toHaveCount(10);
+  await expect(nav.getByRole("button")).toHaveCount(11);
+  await expect(
+    page.getByRole("heading", {
+      level: 1,
+      name: "As vendas da Superdeli, de verdade.",
+    }),
+  ).toBeVisible();
   await expect(page.getByText("Administrador")).toBeVisible();
 });
 

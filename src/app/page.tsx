@@ -5,5 +5,5 @@ import { getSession } from "@/lib/auth";
 export default async function Home() {
   const session = await getSession();
   if (!session) redirect("/login");
-  return <Dashboard role={session.role} />;
+  return <Dashboard role={session.role} userName={session.nome} />;
 }
