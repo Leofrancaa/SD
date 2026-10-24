@@ -169,7 +169,7 @@ export function ProductsView({
           <Chapter
             n={2}
             title="O que está subindo e o que está caindo"
-            caption="Diferença em reais contra o período anterior de mesmo tamanho. Itens pequenos (menos de R$ 150) ficam de fora para não confundir."
+            caption="Diferença em reais contra o período de comparação. Itens pequenos (menos de R$ 150) ficam de fora para não confundir."
           />
           <div className="rs-two">
             <MovesPanel

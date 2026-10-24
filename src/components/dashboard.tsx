@@ -24,12 +24,14 @@ type View = "vendas" | "produtos" | "insights" | "chat";
 const navigation: {
   id: View;
   title: string;
+  short: string;
   heading: string;
   description: string;
   icon: LucideIcon;
 }[] = [
   {
     id: "vendas",
+    short: "Visão geral",
     title: "Visão geral",
     heading: "As vendas da Superdeli, de verdade.",
     description:
@@ -38,6 +40,7 @@ const navigation: {
   },
   {
     id: "produtos",
+    short: "Produtos",
     title: "Produtos",
     heading: "Produtos",
     description:
@@ -46,6 +49,7 @@ const navigation: {
   },
   {
     id: "insights",
+    short: "Insights",
     title: "Insights da Cifrai",
     heading: "Insights da Cifrai",
     description:
@@ -54,6 +58,7 @@ const navigation: {
   },
   {
     id: "chat",
+    short: "Cifrai",
     title: "Conversar com a Cifrai",
     heading: "Conversar com a Cifrai",
     description:
@@ -143,15 +148,19 @@ export function Dashboard({
         </div>
         <span className="nav-label">PADARIA E MINIMERCADO</span>
         <nav aria-label="Menu principal">
-          {allowed.map(({ id, title, icon: Icon }) => (
+          {allowed.map(({ id, title, short, icon: Icon }) => (
             <button
               key={id}
               className={`nav-item ${view === id ? "active" : ""}`}
               aria-current={view === id ? "page" : undefined}
+              aria-label={title}
               onClick={() => navigate(id)}
             >
               <Icon size={19} />
-              <span>{title}</span>
+              <span className="nav-long">{title}</span>
+              <span className="nav-short" aria-hidden="true">
+                {short}
+              </span>
             </button>
           ))}
         </nav>

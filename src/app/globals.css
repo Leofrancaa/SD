@@ -5400,3 +5400,71 @@ table {
 .page-footer {
   font-size: 12.5px;
 }
+
+/* Celular: menu vira barra de abas fixa embaixo (estilo app/PWA). */
+.nav-short {
+  display: none;
+}
+@media (max-width: 760px) {
+  .sidebar nav {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 60;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+    gap: 0;
+    margin: 0;
+    padding: 6px 6px calc(6px + env(safe-area-inset-bottom));
+    overflow: visible;
+    background: var(--sidebar);
+    box-shadow: 0 -6px 18px rgb(0 0 0 / 0.18);
+  }
+  .sidebar nav .nav-item {
+    flex-direction: column;
+    justify-content: center;
+    gap: 4px;
+    width: auto;
+    min-height: 54px;
+    padding: 6px 2px;
+    border-radius: 10px;
+    font-size: 11.5px;
+    line-height: 1.1;
+    text-align: center;
+  }
+  .sidebar nav .nav-item svg {
+    width: 21px;
+    height: 21px;
+  }
+  .nav-long {
+    display: none;
+  }
+  .nav-short {
+    display: block;
+  }
+  .sidebar {
+    padding-bottom: 14px;
+  }
+  .main-shell {
+    padding-bottom: calc(72px + env(safe-area-inset-bottom));
+  }
+  .topbar .breadcrumb {
+    display: none;
+  }
+  .topbar {
+    justify-content: flex-end;
+  }
+}
+.demo-badge,
+.role-badge {
+  white-space: nowrap;
+}
+@media (max-width: 1100px) {
+  .topbar .breadcrumb {
+    display: none;
+  }
+  .topbar {
+    justify-content: flex-end;
+  }
+}

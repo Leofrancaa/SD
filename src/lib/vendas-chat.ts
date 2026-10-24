@@ -9,7 +9,7 @@ import {
   todayInStore,
   weekdayLong,
   weekdayStats,
-  type Preset,
+  type FixedPreset,
   type Situacao,
 } from "@/lib/vendas";
 import { painelVendas } from "@/lib/vendas-server";
@@ -30,14 +30,14 @@ export const chatPeriods = [
   "mes-anterior",
   "ano",
   "personalizado",
-] as const satisfies readonly Preset[];
+] as const satisfies readonly FixedPreset[];
 
 /**
  * Converte o período pedido pela IA nas mesmas datas dos filtros da tela,
  * para os números do chat baterem com a visão geral.
  */
 export function resolveChatPeriod(
-  period: Preset,
+  period: FixedPreset,
   startDate?: string,
   endDate?: string,
   today = todayInStore(),

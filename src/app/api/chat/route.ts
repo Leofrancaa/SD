@@ -132,7 +132,7 @@ export async function POST(request: Request) {
       tools: {
         getRealSales: tool({
           description:
-            "Read-only REAL sales from Superdeli's BMWeb ERP: revenue, orders, average ticket, items per order, comparison with the previous period of the same length, top products, payment methods, weekday averages, busiest hours and ticket bands. Use period for the dashboard periods (same dates as the screen); use personalizado with startDate/endDate (YYYY-MM-DD, up to today, max 800 days) only for other ranges. statusFilter: todas (default), finalizado or pendente.",
+            "Read-only REAL sales from Superdeli's BMWeb ERP: revenue, orders, average ticket, items per order, comparison period (month views: same days of last month; year views: same period last year; otherwise the same number of days just before), top products, payment methods, weekday averages, busiest hours and ticket bands. Use period for the dashboard periods (same dates as the screen); use personalizado with startDate/endDate (YYYY-MM-DD, up to today, max 800 days) only for other ranges. statusFilter: todas (default), finalizado or pendente.",
           inputSchema: z.object({
             period: z.enum(chatPeriods),
             startDate: z.string().optional(),
