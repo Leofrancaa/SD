@@ -12,7 +12,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Superdeli · Cifrai",
   description:
-    "Demonstração de gestão de produção, vendas e desperdício da Superdeli, com dados sintéticos.",
+    "Painel de vendas da Superdeli com dados reais do caixa (BMWeb).",
   robots: { index: false, follow: false },
 };
 

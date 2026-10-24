@@ -100,8 +100,3 @@ export async function realSalesReport(
     })),
   };
 }
-
-export function realSalesInstructions() {
-  const today = todayInStore();
-  return `REAL SALES (exception to the synthetic-only rule): call getRealSales to read REAL point-of-sale data from Superdeli's BMWeb ERP — orders, revenue, average ticket (ticket médio), items per order, top products, payment methods, weekday and hourly patterns. Today's real date is ${today} (America/Sao_Paulo); for real sales, "hoje", "ontem", "esta semana" and "este mês" refer to this real calendar, not to the demonstration's 2026-09-30. Use getRealSales whenever the user asks about real sales ("vendas reais", "de verdade", "no caixa", BMWeb), ticket médio, recent real dates or how the business is actually doing; if unclear whether they mean real or simulated data, prefer real sales. When figures come from getRealSales, say "nas vendas reais (BMWeb)" and never mix them with simulated figures in the same number. Real data has NO costs, stock, production, waste or stockouts: never derive profit, margin or losses from it. Today's figures are partial while the day is in progress (includesToday). Orders with status PENDENTE are not yet finalized in BMWeb; when they matter, mention the split and that the owner should confirm whether pending orders count as sales. The previousPeriod has the same length immediately before.`;
-}

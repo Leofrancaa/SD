@@ -27,10 +27,9 @@ test("token adulterado é rejeitado", () => {
   assert.equal(verifyToken(undefined), null);
 });
 
-test("gerência acessa só o estoque; admin acessa tudo", () => {
-  assert.equal(canAccess("gerencia", "inventory"), true);
-  for (const view of ["overview", "purchases", "chat", "report", "stores"])
-    assert.equal(canAccess("gerencia", view), false);
-  for (const view of ["overview", "inventory", "chat", "settings"])
+test("gerência vê só as vendas; admin acessa também o chat", () => {
+  assert.equal(canAccess("gerencia", "vendas"), true);
+  assert.equal(canAccess("gerencia", "chat"), false);
+  for (const view of ["vendas", "chat"])
     assert.equal(canAccess("admin", view), true);
 });

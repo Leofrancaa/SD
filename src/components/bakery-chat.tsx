@@ -20,18 +20,7 @@ import {
   ConversationScrollButton,
 } from "./ai-elements/conversation";
 import { MessageResponse } from "./ai-elements/message";
-import {
-  dateLabel,
-  money,
-  number,
-  periodBounds,
-  periodLabel,
-  periodRecords,
-  summarize,
-  type DailyRecord,
-  type Period,
-} from "@/lib/demo";
-import { compactRecords } from "@/lib/chat-context";
+import { todayInStore } from "@/lib/vendas";
 
 type ChatEntry = {
   id: string;
@@ -42,27 +31,22 @@ type ChatEntry = {
 };
 type HistoryMessage = { role: "user" | "assistant"; content: string };
 const questions = [
-  "Qual foi o ticket médio real deste mês?",
-  "Quais horários vendem mais nas vendas reais?",
-  "Qual produto vende mais?",
-  "Onde estamos desperdiçando mais?",
-  "Como ajustar a produção de terça-feira?",
-  "Quais mercadorias precisam de reposição?",
-  "Há algum produto de revenda sem giro recente?",
-  "Faça um resumo das vendas do período.",
+  "Como foram as vendas de hoje até agora?",
+  "Qual foi o ticket médio deste mês e como ele mudou?",
+  "Quais dias e horários vendem mais?",
+  "Quais produtos mais faturam nos últimos 30 dias?",
+  "Compare esta semana com a semana passada.",
+  "Que combos poderiam aumentar o ticket médio?",
 ];
 
-export function BakeryChat({
-  records,
-  period,
-  store,
-  active,
-}: {
-  records: DailyRecord[];
-  period: Period;
-  store: string;
-  active: boolean;
-}) {
+const dayLabel = (date: string) =>
+  new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "short",
+    timeZone: "UTC",
+  }).format(new Date(`${date}T12:00:00Z`));
+
+export function BakeryChat({ active }: { active: boolean }) {
   const [entries, setEntries] = useState<ChatEntry[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -78,7 +62,6 @@ export function BakeryChat({
     history: HistoryMessage[];
     userId: string;
   } | null>(null);
-  const totals = summarize(periodRecords(records, period));
 
   useEffect(() => {
     if (!active) {
@@ -137,14 +120,14 @@ export function BakeryChat({
         role: "user",
         content: question.trim(),
         state: "complete",
-        period: periodLabel(period),
+        period: dayLabel(todayInStore()),
       },
       {
         id: assistantId,
         role: "assistant",
         content: "",
         state: "streaming",
-        period: periodLabel(period),
+        period: dayLabel(todayInStore()),
       },
     ]);
     let answer = "";
@@ -155,9 +138,6 @@ export function BakeryChat({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           messages: [...history, { role: "user", content: question.trim() }],
-          records: compactRecords(records),
-          period,
-          store,
         }),
         signal: AbortSignal.any([
           controller.signal,
@@ -263,7 +243,7 @@ export function BakeryChat({
           </div>
           <div>
             <h2>Cifrai, sua assistente de gestão</h2>
-            <p>Uma conversa com os dados da Superdeli.</p>
+            <p>Uma conversa com as vendas reais da Superdeli.</p>
           </div>
           <span
             className={`chat-connection ${connection === "ready" ? "connected" : ""}`}
@@ -291,8 +271,9 @@ export function BakeryChat({
                 </span>
                 <h3>O que você quer entender hoje?</h3>
                 <p>
-                  Posso ajudar a ler as vendas, identificar sobras e pensar na
-                  próxima fornada.
+                  Pergunte sobre faturamento, ticket médio, produtos, horários e
+                  formas de pagamento. Eu consulto o caixa (BMWeb) para
+                  responder.
                 </p>
                 <div className="chat-starter-questions">
                   {questions.map((question) => (
@@ -343,7 +324,7 @@ export function BakeryChat({
                   ) : entry.state === "streaming" ? (
                     <p className="chat-thinking">
                       <LoaderCircle size={15} className="chat-spinner" />
-                      Analisando os registros…
+                      Consultando as vendas…
                     </p>
                   ) : (
                     <p className="chat-interrupted">Resposta não concluída.</p>
@@ -420,7 +401,7 @@ export function BakeryChat({
             rows={2}
             maxLength={1000}
             value={input}
-            placeholder="Pergunte sobre vendas, sobras ou produção…"
+            placeholder="Pergunte sobre vendas, ticket médio, produtos…"
             aria-describedby="chat-input-help"
             onChange={(event) => setInput(event.target.value)}
             onKeyDown={(event) => {
@@ -460,8 +441,7 @@ export function BakeryChat({
           </div>
         </form>
         <p className="chat-footnote">
-          IA pode errar. Confira os números e aprove qualquer mudança na
-          produção.
+          IA pode errar. Confira os números na tela de Vendas antes de decidir.
         </p>
         <span className="sr-only" role="status" aria-live="polite">
           {announcement}
@@ -470,60 +450,34 @@ export function BakeryChat({
       <aside className="chat-context">
         <div className="inline-title">
           <Check size={17} />
-          <h2>Contexto da conversa</h2>
+          <h2>De onde vêm as respostas</h2>
         </div>
         <p>
-          O chat usa os registros atuais deste navegador, no período
-          selecionado.
+          A Cifrai consulta as vendas reais importadas do BMWeb, no período que
+          você perguntar. Sem período, ela usa os últimos 30 dias.
         </p>
-        <dl>
-          <div>
-            <dt>Período selecionado</dt>
-            <dd>
-              {dateLabel(periodBounds(period).start)} —{" "}
-              {dateLabel(periodBounds(period).end, {
-                day: "2-digit",
-                month: "short",
-                year: "numeric",
-              })}
-            </dd>
-          </div>
-          <div>
-            <dt>Receita de vendas</dt>
-            <dd>{money(totals.revenue)}</dd>
-          </div>
-          <div>
-            <dt>Unidades vendidas</dt>
-            <dd>{number(totals.sold)}</dd>
-          </div>
-          <div>
-            <dt>Perdas ao custo</dt>
-            <dd>{money(totals.loss)}</dd>
-          </div>
-        </dl>
         <div className="chat-data-note">
-          <span className="demo-badge">
+          <span className="demo-badge real-badge">
             <span />
-            Dados sintéticos
+            Dados reais · BMWeb
           </span>
           <p>
-            Os painéis ao lado são uma demonstração. Pergunte por &ldquo;vendas
-            reais&rdquo; para a Cifrai consultar o caixa (BMWeb); a resposta
-            indica a fonte no início.
+            Ela vê pedidos, faturamento, produtos, horários e formas de
+            pagamento. Custos, estoque e lucro não estão nos dados, então ela
+            não calcula margem.
           </p>
         </div>
         <div className="chat-data-note">
           <h3>Você decide o próximo passo.</h3>
           <p>
-            A Cifrai explica e sugere. Ela não altera a produção, realiza
-            compras ou publica promoções.
+            A Cifrai explica e sugere. Ela não altera nada na loja, no caixa ou
+            nos sistemas.
           </p>
         </div>
         <p className="chat-privacy-note">
-          Perguntas, dados do piloto e resumos das vendas reais (totais, sem
-          dados de clientes) são enviados à Groq para gerar a resposta. Evite
-          dados pessoais. A conversa fica nesta sessão e não é salva pelo
-          aplicativo.
+          Sua pergunta e resumos das vendas (totais, sem dados de clientes) são
+          enviados à Groq para gerar a resposta. A conversa fica nesta sessão e
+          não é salva pelo aplicativo.
         </p>
       </aside>
     </div>

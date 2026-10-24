@@ -1,32 +1,26 @@
 import { createGroq } from "@ai-sdk/groq";
 import { isStepCount, ToolLoopAgent, tool } from "ai";
 import { z } from "zod";
-import { purchasePlan } from "@/lib/operations";
 import {
   assistantInstructions,
-  bakeryReport,
   chatRequestSchema,
   friendlyChatError,
-  selectedChatContext,
-  expandRecords,
 } from "@/lib/chat-context";
 import { sessionFromRequest } from "@/lib/auth";
-import {
-  realSalesAvailable,
-  realSalesInstructions,
-  realSalesReport,
-} from "@/lib/vendas-chat";
+import { realSalesAvailable, realSalesReport } from "@/lib/vendas-chat";
 import { canAccess } from "@/lib/roles";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
-// 13 meses de registros sintéticos (~0,8 MB) cabem com folga; abaixo do limite de 4,5 MB da Vercel.
-const MAX_BODY_BYTES = 1_500_000;
+// Só o histórico da conversa vai no corpo (os dados são lidos no servidor).
+const MAX_BODY_BYTES = 64_000;
 const clients = new Map<string, { count: number; resetAt: number }>();
 
 export function GET() {
   return Response.json(
-    { configured: Boolean(process.env.GROQ_API_KEY) },
+    {
+      configured: Boolean(process.env.GROQ_API_KEY) && realSalesAvailable(),
+    },
     { headers: { "Cache-Control": "no-store" } },
   );
 }
@@ -57,11 +51,11 @@ export async function POST(request: Request) {
       { status: 403 },
     );
   }
-  if (!process.env.GROQ_API_KEY)
+  if (!process.env.GROQ_API_KEY || !realSalesAvailable())
     return Response.json(
       {
         error:
-          "A IA ainda não foi configurada. O responsável precisa adicionar a chave da Groq no servidor.",
+          "A IA ainda não foi configurada. O responsável precisa conferir a chave da Groq e a conexão com o banco no servidor.",
       },
       { status: 503 },
     );
@@ -77,7 +71,6 @@ export async function POST(request: Request) {
       { status: 413 },
     );
   let payload;
-  let records;
   try {
     const body = await request.text();
     if (new TextEncoder().encode(body).length > MAX_BODY_BYTES)
@@ -88,13 +81,9 @@ export async function POST(request: Request) {
         { status: 413 },
       );
     payload = chatRequestSchema.parse(JSON.parse(body));
-    records = expandRecords(payload.records);
   } catch {
     return Response.json(
-      {
-        error:
-          "A mensagem ou os registros são inválidos. Confira os dados e tente novamente.",
-      },
+      { error: "Mensagem inválida. Confira e tente novamente." },
       { status: 400 },
     );
   }
@@ -120,101 +109,47 @@ export async function POST(request: Request) {
   const signal = AbortSignal.any([
     request.signal,
     controller.signal,
-    AbortSignal.timeout(45000),
+    AbortSignal.timeout(50000),
   ]);
   const groq = createGroq({ apiKey: process.env.GROQ_API_KEY });
-  // Quais fontes a resposta usou, para o rótulo no início do texto.
-  const sources = { real: false, simulated: false };
-  const realSales = realSalesAvailable();
   const primaryModel = process.env.GROQ_MODEL ?? "openai/gpt-oss-120b";
   const createAgent = (modelId: string) =>
     new ToolLoopAgent({
       model: groq(modelId),
-      instructions: `${assistantInstructions}\n${realSales ? `${realSalesInstructions()}\n` : ""}AUTHORITATIVE REPORT (server calculated, SYNTHETIC demonstration):\n${JSON.stringify(selectedChatContext(records, payload.period, payload.store))}`,
-      stopWhen: isStepCount(realSales ? 4 : 3),
+      instructions: assistantInstructions(),
+      // Até 3 consultas (ex.: comparar dois períodos) + a resposta.
+      stopWhen: isStepCount(4),
       maxOutputTokens: 1800,
       temperature: 0.2,
       maxRetries: 0,
       prepareCall: (settings) => ({ ...settings, onError: () => {} }),
       providerOptions: { groq: { reasoningEffort: "low" } },
       tools: {
-        getPurchasePlan: tool({
+        getRealSales: tool({
           description:
-            "Calculate a read-only draft purchase plan from the last 28 days of sales and the latest inventory at 2026-09-30. Use for exact suggested purchase quantities or estimated acquisition budgets. Never place orders. Manually adjusted or selected browser purchase drafts are not available to this tool.",
-          inputSchema: z.object({
-            targetDays: z.union([z.literal(3), z.literal(7), z.literal(14)]),
-          }),
-          execute: async ({ targetDays }) => {
-            sources.simulated = true;
-            const plan = purchasePlan(records, targetDays);
-            return {
-              synthetic: true,
-              asOf: "2026-09-30",
-              historyDays: 28,
-              targetDays,
-              formula:
-                "ceil(average recorded daily sales * targetDays + minimumStock - latestStock), floored at zero; no automatic recommendation without current inventory or sales",
-              estimatedTotalCost:
-                Math.round(
-                  plan.reduce((sum, item) => sum + item.estimatedCost, 0) * 100,
-                ) / 100,
-              products: plan.map((item) => ({
-                name: item.product.name,
-                stock: item.stock,
-                minimumStock: item.product.minimumStock,
-                quantity: item.quantity,
-                unitCost: item.product.cost,
-                estimatedCost: Math.round(item.estimatedCost * 100) / 100,
-                stale: item.stale,
-                recordedDays: item.recordedDays,
-                averageDailySales: item.averageDailySales,
-              })),
-            };
-          },
-        }),
-        getBakeryReport: tool({
-          description:
-            "Return verified synthetic bakery and minimarket calculations for a date range or specific product. Date range must fall between 2025-09-01 and 2026-09-30. Use product IDs from the authoritative report. Use to answer explicit dates or periods outside the currently selected range.",
+            "Read-only REAL sales from Superdeli's BMWeb ERP for a date range (YYYY-MM-DD, up to today, max 800 days): revenue, orders, average ticket, items per order, comparison with the previous period of the same length, top products, payment methods, weekday averages, busiest hours and ticket bands. statusFilter: todas (default), finalizado or pendente.",
           inputSchema: z.object({
             startDate: z.string(),
             endDate: z.string(),
-            productId: z.string().optional(),
+            statusFilter: z
+              .enum(["todas", "finalizado", "pendente"])
+              .optional(),
           }),
-          execute: async ({ startDate, endDate, productId }) => {
-            sources.simulated = true;
-            return bakeryReport(records, startDate, endDate, productId);
+          execute: async ({ startDate, endDate, statusFilter }) => {
+            try {
+              return await realSalesReport(
+                startDate,
+                endDate,
+                statusFilter ?? "todas",
+              );
+            } catch {
+              return {
+                error:
+                  "As vendas estão indisponíveis agora. Avise que não foi possível consultar o BMWeb.",
+              };
+            }
           },
         }),
-        ...(realSales
-          ? {
-              getRealSales: tool({
-                description:
-                  "Read-only REAL sales from Superdeli's BMWeb ERP for a date range (YYYY-MM-DD, up to today, max 800 days): revenue, orders, average ticket, items per order, comparison with the previous period of the same length, top products, payment methods, weekday averages, busiest hours and ticket bands. statusFilter: todas (default), finalizado or pendente.",
-                inputSchema: z.object({
-                  startDate: z.string(),
-                  endDate: z.string(),
-                  statusFilter: z
-                    .enum(["todas", "finalizado", "pendente"])
-                    .optional(),
-                }),
-                execute: async ({ startDate, endDate, statusFilter }) => {
-                  sources.real = true;
-                  try {
-                    return await realSalesReport(
-                      startDate,
-                      endDate,
-                      statusFilter ?? "todas",
-                    );
-                  } catch {
-                    return {
-                      error:
-                        "As vendas reais estão indisponíveis agora. Avise que não foi possível consultar o BMWeb.",
-                    };
-                  }
-                },
-              }),
-            }
-          : {}),
       },
     });
   const encoder = new TextEncoder();
@@ -231,16 +166,6 @@ export async function POST(request: Request) {
           });
           for await (const part of result.fullStream) {
             if (part.type === "text-delta") {
-              if (!text)
-                send({
-                  type: "delta",
-                  text:
-                    sources.real && sources.simulated
-                      ? "**Vendas reais (BMWeb) e dados simulados da Superdeli**\n\n"
-                      : sources.real
-                        ? "**Vendas reais da Superdeli (BMWeb)**\n\n"
-                        : "**Dados simulados da Superdeli**\n\n",
-                });
               text += part.text;
               send({ type: "delta", text: part.text });
             } else if (part.type === "error") throw part.error;
