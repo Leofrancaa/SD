@@ -42,6 +42,8 @@ type ChatEntry = {
 };
 type HistoryMessage = { role: "user" | "assistant"; content: string };
 const questions = [
+  "Qual foi o ticket médio real deste mês?",
+  "Quais horários vendem mais nas vendas reais?",
   "Qual produto vende mais?",
   "Onde estamos desperdiçando mais?",
   "Como ajustar a produção de terça-feira?",
@@ -505,8 +507,9 @@ export function BakeryChat({
             Dados sintéticos
           </span>
           <p>
-            Esta é uma demonstração. Os valores não representam os resultados
-            reais da Superdeli.
+            Os painéis ao lado são uma demonstração. Pergunte por &ldquo;vendas
+            reais&rdquo; para a Cifrai consultar o caixa (BMWeb); a resposta
+            indica a fonte no início.
           </p>
         </div>
         <div className="chat-data-note">
@@ -517,8 +520,9 @@ export function BakeryChat({
           </p>
         </div>
         <p className="chat-privacy-note">
-          Perguntas e dados do piloto são enviados à Groq para gerar a resposta.
-          Evite dados pessoais. A conversa fica nesta sessão e não é salva pelo
+          Perguntas, dados do piloto e resumos das vendas reais (totais, sem
+          dados de clientes) são enviados à Groq para gerar a resposta. Evite
+          dados pessoais. A conversa fica nesta sessão e não é salva pelo
           aplicativo.
         </p>
       </aside>

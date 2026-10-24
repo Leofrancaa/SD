@@ -20,7 +20,7 @@ Record production, sales, leftovers and stockouts. Explain sales patterns to hel
 
 ## Constraints
 
-This demo uses deterministic synthetic data, never actual business results. Changes persist only in the current browser. No authentication, shared database or POS integration is included. The user authorized a Groq-powered chat using current browser records. Server-calculated reports ground all answers, and a read-only tool can query dates in the available history. Suggestions outside the chat remain rule-based. Unconfirmed branding, opening hours, prices and product catalog remain illustrative. Chat never executes production or purchasing decisions.
+The "Vendas reais" screen shows actual point-of-sale orders imported from the BMWeb ERP into Supabase (read-only, server-side, authenticated users only). Every other screen uses deterministic synthetic data, never actual business results, and is labelled as a demonstration. Demo changes persist only in the current browser. The user authorized a Groq-powered chat using current browser records. Server-calculated reports ground all answers, and a read-only tool can query dates in the available history. Suggestions outside the chat remain rule-based. Unconfirmed branding, opening hours, prices and product catalog remain illustrative. Chat never executes production or purchasing decisions.
 
 ## Evidence
 

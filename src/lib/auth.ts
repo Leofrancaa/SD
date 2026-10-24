@@ -1,13 +1,18 @@
-// Autenticação simples, sem banco: um usuário por perfil, senhas em variáveis
-// de ambiente e sessão em cookie assinado (HMAC-SHA256). Só roda no servidor.
+// Autenticação: usuários no banco (Supabase, senha em hash scrypt) e sessão em
+// cookie assinado (HMAC-SHA256). Sem Supabase configurado (desenvolvimento e
+// testes), cai para um usuário por perfil com senha em variável de ambiente.
+// Só roda no servidor.
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
-import { isRole, type Role } from "@/lib/roles";
+import { isRole, roleLabels, type Role } from "@/lib/roles";
+import { burnPasswordTime, verifyPassword } from "@/lib/password";
+import { supabaseConfigurado, supabaseRpc } from "@/lib/supabase-server";
 
 export const SESSION_COOKIE = "sd_session";
 export const SESSION_MAX_AGE = 60 * 60 * 8; // 8 horas
 
-export type Session = { role: Role; exp: number };
+export type Identity = { sub?: string; nome?: string };
+export type Session = { role: Role; exp: number } & Identity;
 
 const isProduction = process.env.NODE_ENV === "production";
 
@@ -30,8 +35,17 @@ function secret() {
   return value && value.length >= 32 ? value : undefined;
 }
 
+/** Usuários vêm do banco quando o Supabase está configurado no servidor. */
+export function usersFromDatabase() {
+  return supabaseConfigurado();
+}
+
 export function authConfigured() {
-  return Boolean(secret() && env("ADMIN_PASSWORD") && env("GERENCIA_PASSWORD"));
+  return Boolean(
+    secret() &&
+    (usersFromDatabase() ||
+      (env("ADMIN_PASSWORD") && env("GERENCIA_PASSWORD"))),
+  );
 }
 
 function passwordFor(role: Role) {
@@ -59,13 +73,62 @@ function sign(payload: string, key: string) {
   return createHmac("sha256", key).update(payload).digest("base64url");
 }
 
-export function createToken(role: Role, now = Date.now()) {
+type DbUser = {
+  id: string;
+  empresa_id: string;
+  nome: string;
+  perfil: string;
+  senha_hash: string;
+};
+
+/**
+ * Confere usuário e senha. Com banco: busca o usuário ativo e compara o hash
+ * scrypt (tempo constante, inclusive para usuário inexistente). Sem banco:
+ * senhas das variáveis de ambiente (só desenvolvimento/testes).
+ */
+export async function authenticate(
+  username: string,
+  password: string,
+): Promise<({ role: Role } & Identity) | null> {
+  const login = username.trim().toLowerCase();
+  if (!usersFromDatabase()) {
+    const role = checkCredentials(login, password);
+    return role ? { role, nome: roleLabels[role] } : null;
+  }
+  if (!/^[a-z0-9._-]{3,32}$/.test(login)) {
+    await burnPasswordTime(password);
+    return null;
+  }
+  const rows = await supabaseRpc<DbUser[]>("auth_usuario", {
+    p_usuario: login,
+  });
+  const user = rows[0];
+  if (!user) {
+    await burnPasswordTime(password);
+    return null;
+  }
+  if (
+    !(await verifyPassword(password, user.senha_hash)) ||
+    !isRole(user.perfil)
+  )
+    return null;
+  supabaseRpc("auth_registrar_login", { p_id: user.id }).catch(() => {});
+  return { role: user.perfil, sub: user.id, nome: user.nome };
+}
+
+export function createToken(
+  role: Role,
+  now = Date.now(),
+  identity: Identity = {},
+) {
   const key = secret();
   if (!key)
     throw new Error("AUTH_SECRET ausente ou curto (mín. 32 caracteres).");
   const session: Session = {
     role,
     exp: Math.floor(now / 1000) + SESSION_MAX_AGE,
+    ...(identity.sub ? { sub: identity.sub.slice(0, 64) } : {}),
+    ...(identity.nome ? { nome: identity.nome.slice(0, 80) } : {}),
   };
   const payload = Buffer.from(JSON.stringify(session)).toString("base64url");
   return `${payload}.${sign(payload, key)}`;
@@ -86,7 +149,12 @@ export function verifyToken(
     ) as Partial<Session>;
     if (!isRole(session.role) || typeof session.exp !== "number") return null;
     if (session.exp * 1000 <= now) return null;
-    return { role: session.role, exp: session.exp };
+    return {
+      role: session.role,
+      exp: session.exp,
+      ...(typeof session.sub === "string" ? { sub: session.sub } : {}),
+      ...(typeof session.nome === "string" ? { nome: session.nome } : {}),
+    };
   } catch {
     return null;
   }

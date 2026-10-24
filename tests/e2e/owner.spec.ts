@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 test("owner priorities route directly to purchases and keep simulation visible", async ({
   page,
 }) => {
-  await page.goto("/");
+  await page.goto("/?view=overview");
   await expect(
     page.getByRole("heading", { name: "Por onde começar" }),
   ).toBeVisible();
@@ -96,7 +96,7 @@ test("owner workflows fit a phone and respect keyboard controls", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 900 });
-  await page.goto("/");
+  await page.goto("/?view=overview");
   await page.screenshot({
     path: "test-results/owner-home-mobile.png",
     fullPage: true,

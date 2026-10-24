@@ -11,6 +11,11 @@ import {
   expandRecords,
 } from "@/lib/chat-context";
 import { sessionFromRequest } from "@/lib/auth";
+import {
+  realSalesAvailable,
+  realSalesInstructions,
+  realSalesReport,
+} from "@/lib/vendas-chat";
 import { canAccess } from "@/lib/roles";
 
 export const runtime = "nodejs";
@@ -118,12 +123,15 @@ export async function POST(request: Request) {
     AbortSignal.timeout(45000),
   ]);
   const groq = createGroq({ apiKey: process.env.GROQ_API_KEY });
+  // Quais fontes a resposta usou, para o rótulo no início do texto.
+  const sources = { real: false, simulated: false };
+  const realSales = realSalesAvailable();
   const primaryModel = process.env.GROQ_MODEL ?? "openai/gpt-oss-120b";
   const createAgent = (modelId: string) =>
     new ToolLoopAgent({
       model: groq(modelId),
-      instructions: `${assistantInstructions}\nAUTHORITATIVE REPORT (server calculated):\n${JSON.stringify(selectedChatContext(records, payload.period, payload.store))}`,
-      stopWhen: isStepCount(3),
+      instructions: `${assistantInstructions}\n${realSales ? `${realSalesInstructions()}\n` : ""}AUTHORITATIVE REPORT (server calculated, SYNTHETIC demonstration):\n${JSON.stringify(selectedChatContext(records, payload.period, payload.store))}`,
+      stopWhen: isStepCount(realSales ? 4 : 3),
       maxOutputTokens: 1800,
       temperature: 0.2,
       maxRetries: 0,
@@ -137,6 +145,7 @@ export async function POST(request: Request) {
             targetDays: z.union([z.literal(3), z.literal(7), z.literal(14)]),
           }),
           execute: async ({ targetDays }) => {
+            sources.simulated = true;
             const plan = purchasePlan(records, targetDays);
             return {
               synthetic: true,
@@ -171,9 +180,41 @@ export async function POST(request: Request) {
             endDate: z.string(),
             productId: z.string().optional(),
           }),
-          execute: async ({ startDate, endDate, productId }) =>
-            bakeryReport(records, startDate, endDate, productId),
+          execute: async ({ startDate, endDate, productId }) => {
+            sources.simulated = true;
+            return bakeryReport(records, startDate, endDate, productId);
+          },
         }),
+        ...(realSales
+          ? {
+              getRealSales: tool({
+                description:
+                  "Read-only REAL sales from Superdeli's BMWeb ERP for a date range (YYYY-MM-DD, up to today, max 800 days): revenue, orders, average ticket, items per order, comparison with the previous period of the same length, top products, payment methods, weekday averages, busiest hours and ticket bands. statusFilter: todas (default), finalizado or pendente.",
+                inputSchema: z.object({
+                  startDate: z.string(),
+                  endDate: z.string(),
+                  statusFilter: z
+                    .enum(["todas", "finalizado", "pendente"])
+                    .optional(),
+                }),
+                execute: async ({ startDate, endDate, statusFilter }) => {
+                  sources.real = true;
+                  try {
+                    return await realSalesReport(
+                      startDate,
+                      endDate,
+                      statusFilter ?? "todas",
+                    );
+                  } catch {
+                    return {
+                      error:
+                        "As vendas reais estão indisponíveis agora. Avise que não foi possível consultar o BMWeb.",
+                    };
+                  }
+                },
+              }),
+            }
+          : {}),
       },
     });
   const encoder = new TextEncoder();
@@ -193,7 +234,12 @@ export async function POST(request: Request) {
               if (!text)
                 send({
                   type: "delta",
-                  text: "**Dados simulados da Superdeli**\n\n",
+                  text:
+                    sources.real && sources.simulated
+                      ? "**Vendas reais (BMWeb) e dados simulados da Superdeli**\n\n"
+                      : sources.real
+                        ? "**Vendas reais da Superdeli (BMWeb)**\n\n"
+                        : "**Dados simulados da Superdeli**\n\n",
                 });
               text += part.text;
               send({ type: "delta", text: part.text });
