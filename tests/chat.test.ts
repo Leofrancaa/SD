@@ -5,7 +5,7 @@ import {
   chatRequestSchema,
   friendlyChatError,
 } from "../src/lib/chat-context";
-import { realSalesReport } from "../src/lib/vendas-chat";
+import { realSalesReport, resolveChatPeriod } from "../src/lib/vendas-chat";
 import { GET, POST } from "../src/app/api/chat/route";
 import { createToken, SESSION_COOKIE } from "../src/lib/auth";
 
@@ -50,6 +50,8 @@ test("instruções usam só dados reais, a data de hoje e proíbem lucro inventa
   const text = assistantInstructions("2026-10-24");
   assert.ok(text.includes("Today is 2026-10-24"));
   assert.ok(text.includes("ALWAYS call getRealSales"));
+  assert.ok(text.includes('30d = "Últimos 30 dias" (25/09 a 24/10)'));
+  assert.ok(text.includes('mes-anterior = "Mês passado" (01/09 a 30/09)'));
   assert.ok(text.includes("never derive profit"));
   assert.ok(!/synthetic|simulad/i.test(text));
 });
@@ -260,4 +262,33 @@ test("chat tenta o modelo menor uma vez no limite da Groq, sem vazar erros", asy
     console.error = originalError;
     restore();
   }
+});
+
+test("períodos do chat usam as mesmas datas dos filtros da tela", () => {
+  assert.deepEqual(
+    resolveChatPeriod("30d", undefined, undefined, "2026-10-24"),
+    {
+      start: "2026-09-25",
+      end: "2026-10-24",
+      label: "Últimos 30 dias",
+    },
+  );
+  assert.deepEqual(
+    resolveChatPeriod("hoje", undefined, undefined, "2026-10-24"),
+    {
+      start: "2026-10-24",
+      end: "2026-10-24",
+      label: "Hoje",
+    },
+  );
+  assert.ok("error" in resolveChatPeriod("personalizado", "2026-10-01"));
+  assert.deepEqual(
+    resolveChatPeriod(
+      "personalizado",
+      "2026-10-01",
+      "2026-10-07",
+      "2026-10-24",
+    ),
+    { start: "2026-10-01", end: "2026-10-07", label: "Personalizado" },
+  );
 });
