@@ -7,7 +7,12 @@ import {
   friendlyChatError,
 } from "@/lib/chat-context";
 import { sessionFromRequest } from "@/lib/auth";
-import { realSalesAvailable, realSalesReport } from "@/lib/vendas-chat";
+import {
+  chatPeriods,
+  realSalesAvailable,
+  realSalesReport,
+  resolveChatPeriod,
+} from "@/lib/vendas-chat";
 import { canAccess } from "@/lib/roles";
 
 export const runtime = "nodejs";
@@ -127,20 +132,24 @@ export async function POST(request: Request) {
       tools: {
         getRealSales: tool({
           description:
-            "Read-only REAL sales from Superdeli's BMWeb ERP for a date range (YYYY-MM-DD, up to today, max 800 days): revenue, orders, average ticket, items per order, comparison with the previous period of the same length, top products, payment methods, weekday averages, busiest hours and ticket bands. statusFilter: todas (default), finalizado or pendente.",
+            "Read-only REAL sales from Superdeli's BMWeb ERP: revenue, orders, average ticket, items per order, comparison with the previous period of the same length, top products, payment methods, weekday averages, busiest hours and ticket bands. Use period for the dashboard periods (same dates as the screen); use personalizado with startDate/endDate (YYYY-MM-DD, up to today, max 800 days) only for other ranges. statusFilter: todas (default), finalizado or pendente.",
           inputSchema: z.object({
-            startDate: z.string(),
-            endDate: z.string(),
+            period: z.enum(chatPeriods),
+            startDate: z.string().optional(),
+            endDate: z.string().optional(),
             statusFilter: z
               .enum(["todas", "finalizado", "pendente"])
               .optional(),
           }),
-          execute: async ({ startDate, endDate, statusFilter }) => {
+          execute: async ({ period, startDate, endDate, statusFilter }) => {
+            const range = resolveChatPeriod(period, startDate, endDate);
+            if ("error" in range) return range;
             try {
               return await realSalesReport(
-                startDate,
-                endDate,
+                range.start,
+                range.end,
                 statusFilter ?? "todas",
+                range.label,
               );
             } catch {
               return {

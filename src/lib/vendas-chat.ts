@@ -4,9 +4,12 @@ import {
   faixaLabels,
   hourGrid,
   isIsoDate,
+  presetLabels,
+  presetRange,
   todayInStore,
   weekdayLong,
   weekdayStats,
+  type Preset,
   type Situacao,
 } from "@/lib/vendas";
 import { painelVendas } from "@/lib/vendas-server";
@@ -18,10 +21,44 @@ export function realSalesAvailable() {
 
 const round = (value: number) => Math.round(value * 100) / 100;
 
+export const chatPeriods = [
+  "hoje",
+  "ontem",
+  "7d",
+  "30d",
+  "mes",
+  "mes-anterior",
+  "ano",
+  "personalizado",
+] as const satisfies readonly Preset[];
+
+/**
+ * Converte o período pedido pela IA nas mesmas datas dos filtros da tela,
+ * para os números do chat baterem com a visão geral.
+ */
+export function resolveChatPeriod(
+  period: Preset,
+  startDate?: string,
+  endDate?: string,
+  today = todayInStore(),
+): { start: string; end: string; label: string } | { error: string } {
+  if (period !== "personalizado") {
+    const range = presetRange(period, today);
+    return { start: range.ini, end: range.fim, label: presetLabels[period] };
+  }
+  if (!startDate || !endDate)
+    return {
+      error:
+        "Para período personalizado, informe startDate e endDate (AAAA-MM-DD).",
+    };
+  return { start: startDate, end: endDate, label: "Personalizado" };
+}
+
 export async function realSalesReport(
   startDate: string,
   endDate: string,
   situacao: Situacao = "todas",
+  periodLabel = "Personalizado",
 ) {
   const today = todayInStore();
   if (
@@ -48,7 +85,12 @@ export async function realSalesReport(
     .slice(0, 5);
   return {
     source: "REAL point-of-sale data imported from the BMWeb ERP",
-    period: { start: startDate, end: endDate, days: data.periodo.dias },
+    period: {
+      label: periodLabel,
+      start: startDate,
+      end: endDate,
+      days: data.periodo.dias,
+    },
     includesToday: endDate === today,
     statusFilter: situacao,
     availableData: data.base,
