@@ -235,4 +235,22 @@ test("nome do período de comparação acompanha o que o banco escolheu", () => 
     c("2026-10-24", "2026-10-24", "2026-10-23", "2026-10-23"),
     "o dia anterior",
   );
+  assert.equal(
+    c("2026-10-25", "2026-10-25", "2026-10-18", "2026-10-18"),
+    "o domingo passado",
+  );
+  assert.equal(
+    c("2026-10-23", "2026-10-23", "2026-10-16", "2026-10-16"),
+    "a sexta-feira passada",
+  );
+  assert.equal(
+    comparisonName({
+      ini: "2026-10-25",
+      fim: "2026-10-25",
+      ant_ini: "2026-10-18",
+      ant_fim: "2026-10-18",
+      ant_corte: "08:36",
+    }),
+    "o domingo passado até as 8h36",
+  );
 });

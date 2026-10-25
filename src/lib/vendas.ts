@@ -17,6 +17,8 @@ export type PainelVendas = {
     dias: number;
     ant_ini: string;
     ant_fim: string;
+    /** Quando o período inclui hoje: a comparação vai só até este horário ("08:36"). */
+    ant_corte?: string | null;
     situacao: Situacao;
   };
   base: {
@@ -215,17 +217,51 @@ const MESES = [
   "dezembro",
 ];
 
+const DIA_PASSADO = [
+  "a segunda-feira passada",
+  "a terça-feira passada",
+  "a quarta-feira passada",
+  "a quinta-feira passada",
+  "a sexta-feira passada",
+  "o sábado passado",
+  "o domingo passado",
+];
+
+/** "08:36" → "8h36". */
+export function horaCurta(hhmm: string) {
+  const [h, m] = hhmm.split(":");
+  return `${Number(h)}h${m}`;
+}
+
 /**
  * Nome do período de comparação escolhido pelo banco (staging.periodo_anterior):
- * mesmos dias do mês passado, mesmo período do ano passado ou os N dias antes.
+ * mesmo dia da semana passada, mesmos dias do mês passado, mesmo período do ano
+ * passado ou os N dias antes. Se o período inclui hoje, a comparação vai só até
+ * o mesmo horário de agora (ant_corte).
  */
 export function comparisonName(periodo: {
   ini: string;
   fim: string;
   ant_ini: string;
   ant_fim: string;
+  ant_corte?: string | null;
+}) {
+  const corte = periodo.ant_corte
+    ? ` até as ${horaCurta(periodo.ant_corte)}`
+    : "";
+  return comparisonBase(periodo) + corte;
+}
+
+function comparisonBase(periodo: {
+  ini: string;
+  fim: string;
+  ant_ini: string;
 }) {
   const { ini, fim, ant_ini } = periodo;
+  if (ini === fim && ant_ini === shiftDate(ini, -7)) {
+    const dow = new Date(`${ini}T12:00:00Z`).getUTCDay(); // 0 = domingo
+    return DIA_PASSADO[(dow + 6) % 7];
+  }
   if (
     ini !== fim &&
     ini.endsWith("-01-01") &&
@@ -455,6 +491,8 @@ export type PainelProdutos = {
     dias: number;
     ant_ini: string;
     ant_fim: string;
+    /** Quando o período inclui hoje: a comparação vai só até este horário ("08:36"). */
+    ant_corte?: string | null;
     situacao: Situacao;
   };
   totais: {

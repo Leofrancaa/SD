@@ -37,6 +37,7 @@ import {
   type Movimento,
   type PainelProdutos,
   type ProdutoLinha,
+  horaCurta,
 } from "@/lib/vendas";
 
 type Filtro = "todos" | Classe | "alta" | "queda" | "parados" | "novos";
@@ -122,7 +123,11 @@ export function ProductsView({
           <p className="rs-lead">
             Comparando {shortDate(data.periodo.ini)} a{" "}
             {shortDate(data.periodo.fim)} com {shortDate(data.periodo.ant_ini)}{" "}
-            a {shortDate(data.periodo.ant_fim)}.
+            a {shortDate(data.periodo.ant_fim)}
+            {data.periodo.ant_corte
+              ? ` até ${horaCurta(data.periodo.ant_corte)}`
+              : ""}
+            .
           </p>
           <section
             className="metrics rs-metrics"

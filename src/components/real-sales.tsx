@@ -45,6 +45,7 @@ import {
   type PainelVendas,
   type Ponto,
   comparisonName,
+  horaCurta,
 } from "@/lib/vendas";
 
 export type NavTarget = "produtos" | "insights" | "chat";
@@ -388,7 +389,7 @@ function Kpis({
   const itensAnterior = anterior.pedidos
     ? anterior.itens / anterior.pedidos
     : 0;
-  const previousLabel = `${shortDate(periodo.ant_ini)}${periodo.ant_ini === periodo.ant_fim ? "" : ` a ${shortDate(periodo.ant_fim)}`}`;
+  const previousLabel = `${shortDate(periodo.ant_ini)}${periodo.ant_ini === periodo.ant_fim ? "" : ` a ${shortDate(periodo.ant_fim)}`}${periodo.ant_corte ? ` até ${horaCurta(periodo.ant_corte)}` : ""}`;
   const cards: {
     title: string;
     value: string;
