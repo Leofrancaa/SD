@@ -15,7 +15,8 @@ from .parser_bmweb import parse, validar
 
 log = logging.getLogger("coletor")
 
-HORA_FECHAMENTO = 3  # a partir das 3h, confere o dia anterior inteiro uma vez
+HORA_FECHAMENTO = 3  # a partir das 3h, confere os dias anteriores inteiros uma vez
+MAX_DIAS_ATRAS = 31  # se o computador ficou desligado, recupera até 31 dias
 
 
 @dataclass
@@ -49,25 +50,34 @@ def gravar_estado(estado: dict) -> None:
     tmp.replace(arq)
 
 
-def _dias_para_sincronizar(estado: dict, agora: datetime) -> list[date]:
+def _periodos_para_sincronizar(estado: dict, agora: datetime) -> list[tuple[date, date]]:
+    """Dias fechados que faltam (de uma vez, num relatório só) e o dia de hoje."""
     hoje = agora.date()
-    dias = [hoje]
     ontem = hoje - timedelta(days=1)
-    if agora.hour >= HORA_FECHAMENTO and estado.get("ultimo_fechamento") != ontem.isoformat():
-        dias.insert(0, ontem)
-    return dias
+    periodos: list[tuple[date, date]] = []
+    if agora.hour >= HORA_FECHAMENTO:
+        try:
+            ultimo = date.fromisoformat(estado.get("ultimo_fechamento", ""))
+        except ValueError:
+            ultimo = ontem - timedelta(days=1)  # sem histórico: confere só ontem
+        inicio = max(ultimo + timedelta(days=1), hoje - timedelta(days=MAX_DIAS_ATRAS))
+        if inicio <= ontem:
+            periodos.append((inicio, ontem))
+    periodos.append((hoje, hoje))
+    return periodos
 
 
-def _sincronizar_dia(s: requests.Session, cfg: Config, dia: date) -> dict:
-    pdf = bmweb.baixar(s, dia, dia)
-    nome = f"davs_{dia:%Y%m%d}_{bmweb.agora():%H%M%S}.pdf"
+def _sincronizar(s: requests.Session, cfg: Config, ini: date, fim: date) -> dict:
+    pdf = bmweb.baixar(s, ini, fim)
+    sufixo = f"{ini:%Y%m%d}" if ini == fim else f"{ini:%Y%m%d}_{fim:%Y%m%d}"
+    nome = f"davs_{sufixo}_{bmweb.agora():%H%M%S}.pdf"
     meta, pedidos, desconhecidas = parse(pdf, nome)
     erros, alertas, _ = validar(meta, pedidos, desconhecidas)
     if erros:
-        log.error("relatório %s inválido: %s", dia, erros[:5])
+        log.error("relatório %s..%s inválido: %s", ini, fim, erros[:5])
         raise ValueError("O relatório do BMWeb veio num formato diferente do esperado.")
     for a in alertas:
-        log.warning("alerta %s: %s", dia, a)
+        log.warning("alerta %s..%s: %s", ini, fim, a)
     payload = envio.montar_payload(cfg.empresa_id, meta, pedidos, pdf)
     resp = envio.enviar(cfg.supabase_url, cfg.supabase_chave, payload)
     return {
@@ -84,19 +94,22 @@ def executar(cfg: Config) -> Resultado:
         return Resultado(False, "Falta configurar", "Abra as Configurações.", grave=True)
     estado = ler_estado()
     agora = bmweb.agora()
-    dias = _dias_para_sincronizar(estado, agora)
+    periodos = _periodos_para_sincronizar(estado, agora)
     try:
         s = bmweb.sessao(cfg.bm_dominio, cfg.bm_usuario, cfg.bm_senha)
         resumo_hoje = None
         removidos = 0
-        for dia in dias:
-            r = _sincronizar_dia(s, cfg, dia)
+        recuperados = 0
+        for ini, fim in periodos:
+            r = _sincronizar(s, cfg, ini, fim)
             removidos += r["removidos"]
-            log.info("dia %s: %s pedidos, R$ %s, removidos %s", dia, r["pedidos"], r["total"], r["removidos"])
-            if dia == agora.date():
+            log.info("%s..%s: %s pedidos, R$ %s, removidos %s", ini, fim, r["pedidos"], r["total"], r["removidos"])
+            if ini == agora.date():
                 resumo_hoje = r
             else:
-                estado["ultimo_fechamento"] = dia.isoformat()
+                recuperados = (fim - ini).days + 1
+                estado["ultimo_fechamento"] = fim.isoformat()
+                gravar_estado(estado)  # se hoje falhar, os dias fechados não são baixados de novo
         anteriores = estado.get("pedidos_hoje") if estado.get("dia") == agora.date().isoformat() else None
         estado.update({
             "dia": agora.date().isoformat(),
@@ -110,7 +123,8 @@ def executar(cfg: Config) -> Resultado:
         detalhe = (
             f"{pedidos} pedidos de hoje no painel"
             + (f" ({novos} novos)" if novos else "")
-            + (" · conferiu o dia de ontem" if len(dias) > 1 else "")
+            + (" · conferiu o dia de ontem" if recuperados == 1 else "")
+            + (f" · recuperou {recuperados} dias que faltavam" if recuperados > 1 else "")
         )
         return Resultado(
             True, "Tudo certo", detalhe,
