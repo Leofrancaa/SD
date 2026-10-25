@@ -16,6 +16,7 @@ import {
   type Cesta,
   type InsightsIA,
   type Situacao,
+  comparisonName,
 } from "@/lib/vendas";
 import {
   cestasCompras,
@@ -94,6 +95,8 @@ export async function dataPack(ini: string, fim: string, situacao: Situacao) {
       periodoAnterior: {
         inicio: vendas.periodo.ant_ini,
         fim: vendas.periodo.ant_fim,
+        ultimoDiaAteHorario: vendas.periodo.ant_corte ?? null,
+        descricao: comparisonName(vendas.periodo),
       },
       filtroSituacao: situacao,
     },
@@ -214,7 +217,7 @@ Regras:
 - "manchete": uma frase forte e verdadeira sobre o período (ex.: queda/alta de faturamento, ticket, destaque).
 - "resumo": 2 a 4 frases contando a história: como foi o período em relação ao anterior, quando a loja vende, o que puxou o resultado.
 - "insights": 4 a 7 itens, do mais importante para o menos importante, cobrindo assuntos diferentes (ex.: ticket médio e combos com base nos pares comprados juntos, horários/dias fortes e fracos, produtos em alta/queda/parados, formas de pagamento, pedidos pendentes). Cada item: titulo curto; explicacao do porquê importa; evidencia com os números exatos do pacote; acao concreta, pequena e testável (ex.: combo, exposição, horário de fornada, promoção em horário fraco); tipo (oportunidade, alerta, tendencia, destaque) e impacto (alto, medio, baixo).
-- Se incluiHojeParcial for true, lembre que hoje ainda está em andamento antes de comparar o último dia.
+- Se incluiHojeParcial for true, hoje ainda está em andamento. O período anterior já foi cortado no mesmo horário (ultimoDiaAteHorario), então a comparação é justa: diga isso com a descricao do período anterior (ex.: "contra o domingo passado até as 8h36"). Nunca compare um dia parcial com um dia inteiro.
 - Se houver muitos pedidos PENDENTE, gere um alerta pedindo para o dono confirmar se contam como venda.
 - "perguntas": 2 a 4 perguntas curtas que o dono poderia fazer ao chat para aprofundar.
 - Tom: consultor de confiança, sem jargão, sem exageros, sem prometer resultados.`;
@@ -283,5 +286,6 @@ export function insightsSalvar(
 export function aindaValido(salvo: Salvo, fim: string, now = Date.now()) {
   if (!salvo) return false;
   if (fim < todayInStore()) return true;
-  return now - Date.parse(salvo.gerado_em) < 3 * 3600_000;
+  // com o dia em andamento, a análise envelhece rápido: refaz a cada hora
+  return now - Date.parse(salvo.gerado_em) < 3600_000;
 }

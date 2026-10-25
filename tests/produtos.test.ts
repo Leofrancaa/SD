@@ -81,7 +81,7 @@ test("cestas usam no máximo os últimos 90 dias em períodos longos", () => {
   });
 });
 
-test("análise salva vale sempre para período fechado e 3 h quando inclui hoje", () => {
+test("análise salva vale sempre para período fechado e 1 h quando inclui hoje", () => {
   const salvo = {
     conteudo: {} as never,
     modelo: "x",
@@ -90,11 +90,11 @@ test("análise salva vale sempre para período fechado e 3 h quando inclui hoje"
   assert.equal(aindaValido(null, "2020-01-01"), false);
   assert.equal(aindaValido(salvo, "2020-01-01"), true);
   assert.equal(
-    aindaValido(salvo, "9999-12-31", Date.parse("2026-10-24T14:00:00Z")),
+    aindaValido(salvo, "9999-12-31", Date.parse("2026-10-24T12:45:00Z")),
     true,
   );
   assert.equal(
-    aindaValido(salvo, "9999-12-31", Date.parse("2026-10-24T16:00:00Z")),
+    aindaValido(salvo, "9999-12-31", Date.parse("2026-10-24T13:15:00Z")),
     false,
   );
 });

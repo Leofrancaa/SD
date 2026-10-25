@@ -105,6 +105,8 @@ export async function realSalesReport(
     previousPeriod: {
       start: data.periodo.ant_ini,
       end: data.periodo.ant_fim,
+      // período que inclui hoje: o último dia da comparação vai só até este horário
+      lastDayUntil: data.periodo.ant_corte ?? null,
       revenue: round(anterior.faturamento),
       orders: anterior.pedidos,
       averageTicket: round(anterior.ticket_medio),
